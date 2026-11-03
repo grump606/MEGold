@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: MEGold
+## Notes: Personal vendor-profit scanner
+## Author: Chris
+## Version: 0.6.0
+## SavedVariables: MEGoldDB
+Core.lua
+Client.lua
+State.lua
+Storage.lua
+Diagnostics.lua
+Rules.lua
+Scanner.lua
+Settings.lua
+Queue.lua
+Commodities.lua
+Profit.lua
+Ledger.lua
+Vendor.lua
+Inventory.lua
+VendorUI.lua
+UI.lua
+DiagnosticsUI.lua
