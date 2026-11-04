@@ -64,10 +64,8 @@ function M:UnlockStorage()
     if self.queue and type(self.queue.message) == "string" and self.queue.message:find("^Transactions locked") then
         self.queue.message = nil
     end
-    if self.LogState then
-        self:LogState("recovery", "Storage lock cleared by user", { quarantined = #details.paths,
-            accountReason = entry.accountReason or "none", dbReason = entry.dbReason or "none" })
-    end
+    self:LogState("recovery", "Storage lock cleared by user", { quarantined = #details.paths,
+        accountReason = entry.accountReason or "none", dbReason = entry.dbReason or "none" })
     self:Refresh()
     return true, entry
 end
@@ -75,7 +73,7 @@ function M:RequestUnlock()
     local ok, details = self:EvaluateRecovery()
     if not ok then
         local message = "Unlock refused: " .. details
-        if self.LogState then self:LogState("recovery", message) end
+        self:LogState("recovery", message)
         if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("MEGold: " .. message) end
         return false, details
     end

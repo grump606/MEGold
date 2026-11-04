@@ -6,11 +6,11 @@ M.status = "Open the auction house to scan."
 M.events = CreateFrame("Frame")
 function M:Refresh()
     if self.Render and self.window and self.window:IsShown() then self:Render() end
-    if self.RenderLedger and self.ledgerWindow and self.ledgerWindow:IsShown() then self:RenderLedger() end
-    if self.RenderVendor and self.vendorWindow and self.vendorWindow:IsShown() then self:RenderVendor() end
+    if self.ledgerWindow and self.ledgerWindow:IsShown() then self:RenderLedger() end
+    if self.vendorWindow and self.vendorWindow:IsShown() then self:RenderVendor() end
 end
 function M:SetStatus(message, quiet)
-    if not quiet and self.LogState then self:LogState("status", message) end
+    if not quiet then self:LogState("status", message) end
     self.status = message
     self:Refresh()
 end

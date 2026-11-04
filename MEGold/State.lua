@@ -38,7 +38,7 @@ function M:SetPurchaseHold(purchase, held)
     for _, entry in ipairs(self.account.purchases) do
         if entry == purchase and not entry.archived then
             entry.held = held and true or false
-            if self.LogState then self:LogState("hold", "Purchase hold changed", {itemID = entry.itemID, held = entry.held}) end
+            self:LogState("hold", "Purchase hold changed", {itemID = entry.itemID, held = entry.held})
             self:Refresh()
             return true
         end

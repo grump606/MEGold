@@ -5,11 +5,10 @@ function M.Money(amount)
 end
 function M:MarkCollected(purchase)
     if self.vendorRun or self.account.vendorUncertain or self.account.storageLocked or (self.db and self.db.storageLocked) then return false end
-    if self.Supports and not self:Supports("inventory") then return false end
-    if not self.BagTotals then return false end
+    if not self:Supports("inventory") then return false end
     local totals = self:BagTotals()
     -- Confirming one purchase must not adopt a baseline that hides another pending decrease.
-    if self.ReconcileInventory then self:ReconcileInventory(totals) end
+    self:ReconcileInventory(totals)
     local found, allocated = false, 0
     for _, entry in ipairs(self.account.purchases) do
         if entry == purchase then found = true end
@@ -21,7 +20,7 @@ function M:MarkCollected(purchase)
     if not found or remaining <= 0 then return false end
     if (totals[self.ItemIdentity(purchase.link)] or 0) < allocated + remaining then return false end
     purchase.collected, purchase.collectedAt = purchase.quantity, GetServerTime()
-    if self.LogState then self:LogState("collection", "Purchase marked collected", {itemID = purchase.itemID, quantity = purchase.quantity}) end
+    self:LogState("collection", "Purchase marked collected", {itemID = purchase.itemID, quantity = purchase.quantity})
     self.account.inventoryTotals = totals
     self:Refresh()
     return true
@@ -105,7 +104,7 @@ function M:RecordVendorSale(link, quantity, proceeds, flipQuantity, allocations)
     self.account.sales = self.account.sales or {}
     self.account.sales[#self.account.sales + 1] = receipt
     self:InvalidateProfitTally()
-    if self.LogState then self:LogState("vendor-receipt", "Verified vendor sale", {receipt = #self.account.sales, quantity = quantity, proceeds = proceeds, flipQuantity = flipQuantity, cost = receipt.cost}) end
+    self:LogState("vendor-receipt", "Verified vendor sale", {receipt = #self.account.sales, quantity = quantity, proceeds = proceeds, flipQuantity = flipQuantity, cost = receipt.cost})
     return #self.account.sales
 end
 function M:ReverseVendorSale(index)
@@ -118,7 +117,7 @@ function M:ReverseVendorSale(index)
     end
     receipt.reversed, receipt.reversedAt = true, GetServerTime()
     self:InvalidateProfitTally()
-    if self.LogState then self:LogState("vendor-buyback", "Sale receipt reversed", {receipt = index, quantity = receipt.quantity, proceeds = receipt.proceeds}) end
+    self:LogState("vendor-buyback", "Sale receipt reversed", {receipt = index, quantity = receipt.quantity, proceeds = receipt.proceeds})
     return true
 end
 function M:GetProfitTally()

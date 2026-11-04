@@ -192,8 +192,7 @@ end
 -- Reconcile against the saved baseline before replacing it; only the verified sale quantities
 -- (`explained`, may be nil) may explain a lower count (other items/pre-snapshot losses revoke).
 local function commitSnapshot(self, after, money, totals, explained)
-    if self.ReconcileInventory then self:ReconcileInventory(totals, explained)
-    else self.account.inventoryTotals = totals end
+    self:ReconcileInventory(totals, explained)
     self.vendorSnapshot = { rows = after, money = money, totals = totals }
     self.account.buybackRows = after
 end
@@ -264,7 +263,7 @@ function M:ScheduleVendorObservation()
                         elseif not self.vendorRun then
                             -- Non-sale money/inventory activity has settled without changing buyback.
                             local totals = self:BagTotals()
-                            if self.ReconcileInventory then self:ReconcileInventory(totals) end
+                            self:ReconcileInventory(totals)
                             self.vendorSnapshot = { rows = after, money = GetMoney(), totals = totals }
                         end
                     end
@@ -284,7 +283,7 @@ function M:VendorEligible(bag, slot)
         stackCount = item.stackCount, vendor = vendor, quality = quality }
 end
 function M:BuildVendorReview()
-    if self.account.storageLocked or (self.CanTransact and not self:CanTransact("vendor")) then return end
+    if self.account.storageLocked or not self:CanTransact("vendor") then return end
     if self.vendorRun or self.account.vendorUncertain then return end
     self:ObserveVendor()
     if self.account.vendorUncertain then return end
@@ -312,7 +311,7 @@ function M:BuildVendorReview()
     return rows
 end
 function M:StartVendorSale()
-    if self.account.storageLocked or (self.CanTransact and not self:CanTransact("vendor")) then return end
+    if self.account.storageLocked or not self:CanTransact("vendor") then return end
     if not self.merchantOpen or self.vendorRun or self.account.vendorUncertain or not self.vendorReview then return end
     local selected = {}
     for _, row in ipairs(self.vendorReview) do if not row.excluded then selected[#selected + 1] = row end end
@@ -328,7 +327,7 @@ function M:VendorStep()
     local run = self.vendorRun
     if not run then return end
     if run.stopRequested and run.phase ~= "selling" then return self:StopVendorSale("Vendor sale stopped after confirmation.") end
-    if self.account.storageLocked or (self.CanTransact and not self:CanTransact("vendor")) then return self:StopVendorSale("Vendor selling unavailable until client or saved-data checks pass.") end
+    if self.account.storageLocked or not self:CanTransact("vendor") then return self:StopVendorSale("Vendor selling unavailable until client or saved-data checks pass.") end
     if not self.merchantOpen or not MerchantFrame or not MerchantFrame:IsShown() or InCombatLockdown()
         or (InRepairMode and InRepairMode()) or GetCursorInfo() then return self:StopVendorSale("Vendor sale paused: merchant, combat, repair or cursor state changed.") end
     local row = run.rows[run.index]
@@ -383,9 +382,9 @@ function M:VendorStep()
     run.activeSale = sale
     self.account.vendorPending = { token = sale.token, link = row.link, quantity = row.quantity,
         allocations = row.allocations, expectedProceeds = row.vendor * row.quantity, at = GetServerTime() }
-    if self.LogState then self:LogState("vendor-intent", "Sell reviewed stack", {itemID = row.itemID, quantity = row.quantity, bag = row.bag, slot = row.slot, expected = row.vendor * row.quantity}) end
+    self:LogState("vendor-intent", "Sell reviewed stack", {itemID = row.itemID, quantity = row.quantity, bag = row.bag, slot = row.slot, expected = row.vendor * row.quantity})
     local ok, err = pcall(Bags.UseContainerItem, row.bag, row.slot)
-    if not ok and self.LogState then self:LogState("api-error", tostring(err), {operation = "UseContainerItem"}) end
+    if not ok then self:LogState("api-error", tostring(err), {operation = "UseContainerItem"}) end
     if not ok then return self:VendorUncertain("sale call failed; inspect inventory and vendor buyback") end
     C_Timer.After(4, function()
         if self.vendorRun == run and run.phase == "selling" and run.activeSale == sale then
@@ -416,7 +415,7 @@ local events = CreateFrame("Frame")
 for _, event in ipairs({ "MERCHANT_SHOW", "MERCHANT_CLOSED", "MERCHANT_UPDATE", "PLAYER_MONEY", "BAG_UPDATE_DELAYED" }) do events:RegisterEvent(event) end
 events:SetScript("OnEvent", function(_, event)
     if not M.account then return end
-    if M.Supports and not M:Supports("vendor") then
+    if not M:Supports("vendor") then
         M.merchantOpen = false
         if event == "MERCHANT_SHOW" then
             local _, reason = M:Supports("vendor")
@@ -436,7 +435,7 @@ events:SetScript("OnEvent", function(_, event)
         local totals = M:BagTotals()
         -- A decrease that happened before the delayed inventory callback must be handled
         -- before this snapshot becomes the evidence baseline.
-        if M.ReconcileInventory then M:ReconcileInventory(totals) end
+        M:ReconcileInventory(totals)
         M.vendorSnapshot = { rows = rows, money = GetMoney(), totals = totals }
         M:ShowVendor()
     elseif event == "MERCHANT_CLOSED" then

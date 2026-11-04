@@ -46,9 +46,9 @@ function M:BuyCommodity()
         q.phase = "blocked"; return self:QueueMessage("Commodity no longer meets your budget or filters.")
     end
     q.phase, q.ownsQuote, q.ownCall = "quoting", true, true
-    if self.LogState then self:LogState("quote-request", "Commodity quote", {itemID = deal.itemID, quantity = deal.quantity, cap = deal.maxCost}) end
+    self:LogState("quote-request", "Commodity quote", {itemID = deal.itemID, quantity = deal.quantity, cap = deal.maxCost})
     local ok, err = pcall(AH.StartCommoditiesPurchase, deal.itemID, deal.quantity)
-    if not ok and self.LogState then self:LogState("api-error", tostring(err), {operation = "StartCommoditiesPurchase"}) end
+    if not ok then self:LogState("api-error", tostring(err), {operation = "StartCommoditiesPurchase"}) end
     q.ownCall = nil
     if not ok then self:CancelQuote(); q.phase = "blocked"; return self:QueueMessage("Commodity quote request failed.") end
     local token = {}; q.quoteToken = token
@@ -70,16 +70,14 @@ function M:CommodityQuote(unitPrice, totalPrice)
         return self:QueueMessage("Firm commodity quote exceeds your price/profit limits. Nothing purchased.")
     end
     q.phase, q.readyAt = "quoted", GetTime()
-    if self.LogState then self:LogState("quote-accepted", "Firm quote meets limits", {itemID = deal.itemID, quantity = deal.quantity, cost = totalPrice}) end
+    self:LogState("quote-accepted", "Firm quote meets limits", {itemID = deal.itemID, quantity = deal.quantity, cost = totalPrice})
     self:QueueMessage(string.format("Firm quote: %s x%d for %s. Click Confirm Buy before it expires.", deal.name, deal.quantity, GetCoinTextureString(totalPrice)))
 end
 function M:ConfirmCommodity()
     local q = self.queue
     if q.phase ~= "quoted" or not q.ownsQuote or not self.ahOpen or self.account.pending then return end
-    if self.CanTransact then
-        local allowed, reason = self:CanTransact("commodityBuy")
-        if not allowed then self:CancelQuote(); q.phase = "blocked"; return self:QueueMessage(reason) end
-    end
+    local allowed, reason = self:CanTransact("commodityBuy")
+    if not allowed then self:CancelQuote(); q.phase = "blocked"; return self:QueueMessage(reason) end
     if AH.GetQuoteDurationRemaining() <= 0 then
         self:CancelQuote(); q.phase = "ready"
         return self:QueueMessage("Quote expired. Click Get Quote again.")
@@ -93,9 +91,9 @@ function M:ConfirmCommodity()
     entry.status, entry.createdAt = "pending", GetServerTime()
     self.account.pending = entry
     q.phase, q.ownCall = "purchasing", true
-    if self.LogState then self:LogState("purchase-intent", "Commodity confirmation", {itemID = deal.itemID, quantity = deal.quantity, cost = deal.cost}) end
+    self:LogState("purchase-intent", "Commodity confirmation", {itemID = deal.itemID, quantity = deal.quantity, cost = deal.cost})
     local ok, err = pcall(AH.ConfirmCommoditiesPurchase, deal.itemID, deal.quantity)
-    if not ok and self.LogState then self:LogState("api-error", tostring(err), {operation = "ConfirmCommoditiesPurchase"}) end
+    if not ok then self:LogState("api-error", tostring(err), {operation = "ConfirmCommoditiesPurchase"}) end
     q.ownCall = nil
     if not ok then q.phase = "uncertain"; return self:QueueMessage("Commodity confirmation failed. Buying locked for review.") end
     self:QueueMessage("Waiting for commodity purchase confirmation…")

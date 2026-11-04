@@ -34,6 +34,14 @@ def make_queue_runtime():
     function M:Refresh() end
     function M:SetStatus(message) self.status = message end
     function M:StopScan() end
+    -- Minimal stand-ins for modules the real addon always loads (see MEGold.toc) but this fixture does not.
+    function M:LogState() end
+    function M:CanTransact() return true end
+    function M:Supports() return true end
+    function M:MaintainHistory() end
+    function M:CancelQuote() end
+    function M:SortResults() end
+    function M:GetStoredAccount(key) return self.db.accounts[key] end
     function reset()
         timers, bids, searches, results = {}, {}, {}, {}
         now, funds, commodity, throttle = 100, 10000, false, true

@@ -32,7 +32,7 @@ events:RegisterEvent("MERCHANT_CLOSED")
 local reconcileToken
 events:SetScript("OnEvent", function()
     if not M.account then return end
-    if M.Supports and not M:Supports("inventory") then return end
+    if not M:Supports("inventory") then return end
     if M.inventoryReconcilePending then return end -- already scheduled; the timer reads state when it fires
     local token = {}
     reconcileToken, M.inventoryReconcilePending = token, true

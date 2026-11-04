@@ -79,10 +79,8 @@ function M:Render()
     self.page = math.min(self.page or 1, pages)
     self.window.status:SetText(self.status .. " | Batch " .. self.page .. "/" .. pages)
     local q = self.queue
-    if self.GetProfitTally then
-        local tally = self:GetProfitTally()
-        self.window.footer:SetText("Realized flip profit: " .. self.Money(tally.profit) .. " | Other vendor proceeds: " .. self.Money(tally.otherProceeds))
-    end
+    local tally = self:GetProfitTally()
+    self.window.footer:SetText("Realized flip profit: " .. self.Money(tally.profit) .. " | Other vendor proceeds: " .. self.Money(tally.otherProceeds))
     if q then
         self.window.queueStatus:SetText((q.message or "Prepare a batch to refresh real item deals.") ..
             " | Budget spent: " .. money(self.account.spent))

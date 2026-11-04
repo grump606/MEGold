@@ -45,6 +45,7 @@ settings.ignored[1] = None
 settings.buyRarities[1] = False
 assert evaluate()[0] is None
 print("PASS: Lua vendor-profit, threshold, budget, reserve, and exclusion checks")
+module.SortResults = lua.eval("function() end")  # Scanner.lua is not loaded in this fixture
 lua.execute((Path(__file__).parents[1] / "MEGold" / "Settings.lua").read_text(), "MEGold", module)
 values = lua.table_from(dict(minProfit="1", minReturn="5", maxCost="10000",
                              budget="50000", reserve="0", batchSize="10"))

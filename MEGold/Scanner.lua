@@ -33,10 +33,8 @@ function M:StopScan()
     self:SetStatus("Scan stopped. Results are snapshots; refresh before purchasing.")
 end
 function M:StartScan()
-    if self.Supports then
-        local supported, reason = self:Supports("scan")
-        if not supported then return self:SetStatus(reason) end
-    end
+    local supported, reason = self:Supports("scan")
+    if not supported then return self:SetStatus(reason) end
     if self:QueueBusy() then return self:SetStatus("Finish or skip the current buying batch first.") end
     if not self.ahOpen then return self:SetStatus("Open the auction house first.") end
     if self.scan then return end
@@ -99,7 +97,7 @@ function M:ExpirePendingItem(scan, itemID)
     if not group then return end
     scan.pendingByItem[itemID], scan.failedItems[itemID] = nil, true
     scan.pendingCount, scan.failedRows = scan.pendingCount - group.count, scan.failedRows + group.count
-    if self.LogState then self:LogState("scan-item-expired", "Item data unavailable after bounded retries", {itemID = itemID, rows = group.count, attempts = group.attempts}) end
+    self:LogState("scan-item-expired", "Item data unavailable after bounded retries", {itemID = itemID, rows = group.count, attempts = group.attempts})
     self:ScanProgress()
 end
 function M:RequestPendingItem(scan, itemID)
@@ -174,7 +172,7 @@ function M:ScanProgress()
         scan.sortBucket = bucket
         self:SortResults()
     end
-    if self.LogState and (scan.logBucket ~= bucket or (complete and not scan.logComplete)) then
+    if (scan.logBucket ~= bucket or (complete and not scan.logComplete)) then
         scan.logBucket, scan.logComplete = bucket, complete
         self:LogState("scan-progress", "Snapshot processing", {checked = scan.checked, total = scan.total,
             deals = #self.results, pending = pending, unavailable = scan.failedRows, invalid = scan.invalidRows})

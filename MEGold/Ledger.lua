@@ -2,7 +2,7 @@ local _, M = ...
 function M:ResolvePending(entry, purchased)
     if self.account.storageLocked or self.db.storageLocked then return end
     if self.account.pending ~= entry or self.queue.phase ~= "uncertain" then return end
-    if self.LogState then self:LogState("manual-review", "Pending purchase resolved", {purchased = purchased, itemID = entry.itemID, quantity = entry.quantity, cost = entry.cost}) end
+    self:LogState("manual-review", "Pending purchase resolved", {purchased = purchased, itemID = entry.itemID, quantity = entry.quantity, cost = entry.cost})
     if purchased then
         self:FinishPurchase("manual review")
     else
@@ -29,7 +29,7 @@ StaticPopupDialogs.MEGOLD_RESET_BUDGET = {
         M.account.budgetHistory = M.account.budgetHistory or {}
         table.insert(M.account.budgetHistory, { spent = M.account.spent, closedAt = GetServerTime() })
         M.account.spent = 0
-        if M.LogState then M:LogState("budget", "Spending budget reset") end
+        M:LogState("budget", "Spending budget reset")
         M:Refilter(); M:ShowLedger()
     end,
 }
@@ -103,12 +103,10 @@ function M:RenderLedger()
     local f, account = self.ledgerWindow, self.account
     if not f or not account then return end
     f.summary:SetText(string.format("Confirmed purchases: %d | Current budget spent: %s", #account.purchases, GetCoinTextureString(account.spent)))
-    if self.GetProfitTally then
-        local tally = self:GetProfitTally()
-        f.tally:SetText(string.format("Flips sold: %d | Proceeds: %s | Purchase cost: %s | Realized profit: %s\nOther items sold: %d | Proceeds: %s%s",
-            tally.flipQuantity, self.Money(tally.flipProceeds), self.Money(tally.cost), self.Money(tally.profit),
-            tally.otherQuantity, self.Money(tally.otherProceeds), account.vendorUncertain and "\nUnreconciled vendor activity: totals exclude it; Sell Flips is locked." or ""))
-    end
+    local tally = self:GetProfitTally()
+    f.tally:SetText(string.format("Flips sold: %d | Proceeds: %s | Purchase cost: %s | Realized profit: %s\nOther items sold: %d | Proceeds: %s%s",
+        tally.flipQuantity, self.Money(tally.flipProceeds), self.Money(tally.cost), self.Money(tally.profit),
+        tally.otherQuantity, self.Money(tally.otherProceeds), account.vendorUncertain and "\nUnreconciled vendor activity: totals exclude it; Sell Flips is locked." or ""))
     local entry = account.pending
     f.pending:SetText(entry and string.format("UNRESOLVED: %s x%d | %s | %s", entry.name or tostring(entry.itemID),
         entry.quantity, GetCoinTextureString(entry.cost), self.queue.phase) or "No unresolved purchase.")
@@ -124,7 +122,7 @@ function M:RenderLedger()
         row.text:SetText(purchase and string.format("%s x%d | Collected %d | Sold %d | %s", purchase.name or tostring(purchase.itemID),
             purchase.quantity, purchase.collected or 0, purchase.sold or 0, GetCoinTextureString(purchase.cost)) or "")
         row.collect:SetShown(purchase ~= nil); row.hold:SetShown(purchase ~= nil)
-        local inventoryOk = not self.Supports or self:Supports("inventory")
+        local inventoryOk = self:Supports("inventory")
         row.collect:SetEnabled(purchase and (purchase.collected or 0) < purchase.quantity and not self.vendorRun and not account.vendorUncertain
             and not account.storageLocked and not self.db.storageLocked and inventoryOk and true or false)
         row.hold:SetEnabled(purchase and not purchase.archived and not self.vendorRun and not account.storageLocked)

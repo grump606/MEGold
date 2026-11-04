@@ -7,8 +7,8 @@ function M:InitializeQueue()
     if not key then return false end
     self.db.accounts = self.db.accounts or {}
     self.db.accounts[key] = self.db.accounts[key] or { spent = 0, purchases = {}, bought = {} }
-    self.account = self.GetStoredAccount and self:GetStoredAccount(key) or self.db.accounts[key]
-    if self.MaintainHistory then self:MaintainHistory(self.account) end
+    self.account = self:GetStoredAccount(key)
+    self:MaintainHistory(self.account)
     if self.account.vendorPending then
         self.vendorRun = nil
         self.account.vendorUncertain = { reason = "reload interrupted a vendor sale; verify inventory and buyback", at = GetServerTime() }
@@ -26,20 +26,18 @@ function M:QueueBusy()
 end
 function M:QueueMessage(text)
     self.queue.message = text
-    if self.LogState then self:LogState("queue", text) end
+    self:LogState("queue", text)
     self:Refresh()
 end
 function M:BuildBatch()
-    if self.CanTransact then
-        local item, reason = self:CanTransact("itemBuy")
-        local commodity = self:CanTransact("commodityBuy")
-        if not item and not commodity then return self:SetStatus(reason) end
-    end
+    local item, reason = self:CanTransact("itemBuy")
+    local commodity = self:CanTransact("commodityBuy")
+    if not item and not commodity then return self:SetStatus(reason) end
     if self:QueueBusy() then return end
     if not self.ahOpen then return self:SetStatus("Open the auction house first.") end
     self:StopScan()
     -- Buy the best deals first; the list may still hold unsorted rows from a scan in progress.
-    if self.SortResults then self:SortResults() end
+    self:SortResults()
     local q = self.queue
     q.rows, q.index, q.phase = {}, 1, "idle"
     local reserved = 0
@@ -57,7 +55,7 @@ end
 function M:PrepareNext()
     local q = self.queue
     if self.account.pending then return end
-    if self.CancelQuote then self:CancelQuote() end
+    self:CancelQuote()
     q.ready, q.key, q.commodity, q.pagePending = nil, nil, nil, nil
     local row = q.rows[q.index]
     if not row then q.phase = "idle"; return self:QueueMessage("Batch complete. Scan again or prepare another batch.") end
@@ -72,10 +70,8 @@ function M:PrepareNext()
         return self:QueueMessage("Item metadata unavailable. Skip this deal and refresh later.")
     end
     q.commodity = info.isCommodity
-    if self.CanTransact then
-        local allowed, reason = self:CanTransact(q.commodity and "commodityBuy" or "itemBuy")
-        if not allowed then q.phase = "blocked"; return self:QueueMessage(reason) end
-    end
+    local allowed, reason = self:CanTransact(q.commodity and "commodityBuy" or "itemBuy")
+    if not allowed then q.phase = "blocked"; return self:QueueMessage(reason) end
     q.phase = "throttled"
     self:SendQueueSearch()
 end
@@ -88,7 +84,7 @@ function M:SendQueueSearch()
     local token = self:NewQueueRequest()
     self:QueueMessage("Refreshing " .. q.rows[q.index].name .. "…")
     local ok, err = pcall(AH.SendSearchQuery, q.key, {}, true)
-    if not ok and self.LogState then self:LogState("api-error", tostring(err), { operation = "SendSearchQuery" }) end
+    if not ok then self:LogState("api-error", tostring(err), { operation = "SendSearchQuery" }) end
     if not ok then q.phase = "blocked"; return self:QueueMessage("Search rejected. Skip and refresh later.") end
     self:ArmSearchTimeout(token)
 end
@@ -166,10 +162,8 @@ end
 function M:BuyNext()
     local q = self.queue
     if q.phase ~= "ready" or not q.ready or not self.ahOpen or self.account.pending then return end
-    if self.CanTransact then
-        local allowed, reason = self:CanTransact(q.commodity and "commodityBuy" or "itemBuy")
-        if not allowed then q.phase = "blocked"; return self:QueueMessage(reason) end
-    end
+    local allowed, reason = self:CanTransact(q.commodity and "commodityBuy" or "itemBuy")
+    if not allowed then q.phase = "blocked"; return self:QueueMessage(reason) end
     if q.commodity then return self:BuyCommodity() end
     local deal = q.ready
     if GetTime() - q.readyAt > 10 then return self:PrepareNext() end
@@ -192,9 +186,9 @@ function M:BuyNext()
     self.account.pending = entry
     q.phase = "purchasing"
     self:QueueMessage("Waiting for purchase confirmation…")
-    if self.LogState then self:LogState("purchase-intent", "Individual auction buyout", {itemID = deal.itemID, auctionID = deal.auctionID, quantity = deal.quantity, cost = deal.cost}) end
+    self:LogState("purchase-intent", "Individual auction buyout", {itemID = deal.itemID, auctionID = deal.auctionID, quantity = deal.quantity, cost = deal.cost})
     local ok, err = pcall(AH.PlaceBid, deal.auctionID, deal.cost)
-    if not ok and self.LogState then self:LogState("api-error", tostring(err), {operation = "PlaceBid"}) end
+    if not ok then self:LogState("api-error", tostring(err), {operation = "PlaceBid"}) end
     if not ok then q.phase = "uncertain"; return self:QueueMessage("Purchase call failed. Buying locked until reconciled.") end
     C_Timer.After(15, function()
         if self.account.pending == entry then
@@ -212,7 +206,7 @@ function M:FinishPurchase(source)
     if not entry then return end
     entry.status, entry.confirmedAt = "purchased", GetServerTime()
     entry.confirmation = source
-    if self.LogState then self:LogState("purchase-confirmed", source, {itemID = entry.itemID, auctionID = entry.auctionID, quantity = entry.quantity, cost = entry.cost}) end
+    self:LogState("purchase-confirmed", source, {itemID = entry.itemID, auctionID = entry.auctionID, quantity = entry.quantity, cost = entry.cost})
     self.account.purchases[#self.account.purchases + 1] = entry
     if entry.auctionID then self.account.bought[entry.auctionID] = GetServerTime() end
     self.account.spent = self.account.spent + entry.cost
@@ -229,7 +223,7 @@ function M:SkipDeal()
 end
 function M:CloseQueue()
     local q = self.queue
-    if self.CancelQuote then self:CancelQuote() end
+    self:CancelQuote()
     q.token, q.ready = nil, nil
     q.phase = self.account.pending and "uncertain" or "idle"
     self:QueueMessage(self.account.pending and "AH closed with an unresolved purchase. Buying locked." or "Buying batch cancelled because the AH closed.")

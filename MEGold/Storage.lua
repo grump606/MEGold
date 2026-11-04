@@ -351,7 +351,7 @@ function M:MaintainHistory(account)
             account[field] = retained
         end
     end
-    if changed and self.InvalidateProfitTally then self:InvalidateProfitTally(account) end
+    if changed then self:InvalidateProfitTally(account) end
     account.lastMaintenanceAt = now()
 end
 M.STORAGE_SCHEMA = SCHEMA

@@ -38,7 +38,7 @@ function M:Refilter()
             self.results[#self.results + 1] = row
         end
     end
-    if self.SortResults then self:SortResults() end
+    self:SortResults()
     self.page = 1
     self:Refresh()
 end
@@ -93,7 +93,7 @@ function M:ShowSettings()
             for key, value in pairs(validated) do M.db.settings[key] = value end
             for key, ids in pairs(lists) do M.db.settings[key] = ids end
             for quality, check in pairs(f.rarities) do M.db.settings.buyRarities[quality] = check:GetChecked() and true or false end
-            if M.LogState then M:LogState("settings", "Buying filters saved", validated) end
+            M:LogState("settings", "Buying filters saved", validated)
             M:Refilter(); f:Hide()
         end)
     end

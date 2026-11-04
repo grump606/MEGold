@@ -57,6 +57,8 @@ function reset(rows)
 end
 ''')
 module = lua.globals().M
+# Stand-ins for modules the real addon always loads (see MEGold.toc) but this fixture does not.
+lua.execute("function M:LogState() end; function M:Supports() return true end")
 for source in ("Util.lua", "Rules.lua", "Scanner.lua"):
     lua.execute((ROOT / "MEGold" / source).read_text(encoding="utf-8"), "MEGold", module)
 lua.execute('''
@@ -64,7 +66,7 @@ lua.execute('''
 reset({{id = 1}})
 M.Supports = function() return false, "adapter unavailable" end
 M:StartScan(); assert(not M.scan and M.status == "adapter unavailable")
-M.Supports = nil
+M.Supports = function() return true end
 
 -- Requests deduplicate by item ID and an event touches only that ID's rows.
 reset({{id = 1}, {id = 1}, {id = 2}})
