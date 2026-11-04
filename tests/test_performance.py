@@ -80,9 +80,39 @@ assert(logs >= 3) -- log buckets (0,1,2,3 thousand) and completion are still rec
 
 -- Per-row table churn: candidate rows keep only the fields the UI, queue and Refilter use.
 local row = M.candidates[1]
-local allowed = { name=1, quantity=1, quality=1, cost=1, itemID=1, link=1, snapshotIndex=1, valued=1,
+local allowed = { name=1, quantity=1, quality=1, cost=1, itemID=1, link=1, snapshotIndex=1,
     vendor=1, value=1, profit=1, roi=1 }
 for k in pairs(row) do assert(allowed[k], k) end
+local function fieldCount(t) local n = 0 for _ in pairs(t) do n = n + 1 end return n end
+
+-- Non-deal candidates stay slim (<= 8 fields: one 8-node hash part) and carry no result fields.
+begin(500)
+M.db.settings.minProfit = 1000000
+M:ReadSnapshot(); drain()
+assert(#M.candidates == 500 and #M.results == 0)
+for _, c in ipairs(M.candidates) do
+    assert(fieldCount(c) <= 8, fieldCount(c))
+    assert(c.name == nil and c.value == nil and c.profit == nil and c.valued == nil)
+end
+-- Refilter fills name/value/profit/roi only for rows that become deals, and strips them again.
+M.db.settings.minProfit = 1
+M:Refilter()
+assert(#M.results == 500)
+for _, r in ipairs(M.results) do assert(type(r.name) == "string" and r.profit and r.value and r.roi) end
+M.db.settings.minProfit = 1000000
+M:Refilter()
+for _, c in ipairs(M.candidates) do assert(c.name == nil and c.profit == nil and c.roi == nil) end
+M.db.settings.minProfit = 1
+
+-- Sort count stays logarithmic for a large scan where nearly every row is a deal.
+local sorts, realSort = 0, table.sort
+table.sort = function(...) sorts = sorts + 1; return realSort(...) end
+begin(20000)
+M:ReadSnapshot(); drain()
+table.sort = realSort
+assert(#M.results == 20000 and not M.resultsDirty)
+assert(sorts <= math.log(20000) / math.log(2) + 3, sorts)
+for i = 2, #M.results do assert(not M.CompareDeals(M.results[i], M.results[i - 1])) end
 
 -- Refilter still works in both directions from the retained candidates, without rescanning.
 local before = #M.results

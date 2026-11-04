@@ -4,6 +4,10 @@ local CHUNK_SIZE, MAX_ATTEMPTS, REQUEST_TIMEOUT, RETRY_DELAY = 100, 3, 5, 1
 -- slow client still progresses. Without debugprofilestop the loop uses fixed CHUNK_SIZE chunks.
 local FRAME_BUDGET_MS, MIN_ROWS, STATUS_EVERY = 8, 25, 20
 local MAX_INTEGER = 9007199254740991
+-- Mid-scan sorts are amortized: once at least MIN_SORT results exist, re-sort only after the
+-- result count has grown by SORT_GROWTH since the last sort (total sort work stays O(n log n)).
+local MIN_SORT, SORT_GROWTH = 256, 2
+local floor, match = math.floor, string.match
 local function auction() return M.Client and M.Client.Auction or C_AuctionHouse end
 local function items() return M.Client and M.Client.Items or C_Item end
 local integer = M.Integer
@@ -21,7 +25,7 @@ function M.CompareDeals(a, b)
     local ai, bi = a.snapshotIndex or a.itemID or 0, b.snapshotIndex or b.itemID or 0
     return ai < bi
 end
--- One O(n log n) sort per checkpoint; rows are appended unsorted by ValueRow.
+-- One O(n log n) sort per call; rows are appended unsorted by ValueRow.
 function M:SortResults()
     if self.results and #self.results > 1 then table.sort(self.results, M.CompareDeals) end
     self.resultsDirty = false
@@ -61,33 +65,33 @@ function M:StartScan()
     end)
 end
 function M:ValueRow(row)
-    if row.valued then return true end
     -- Item links preserve suffix/variant information; never substitute ID-only pricing.
     if not row.link and row.snapshotIndex ~= nil then
         local ok, link = pcall(auction().GetReplicateItemLink, row.snapshotIndex)
         if ok then row.link = link end
     end
     if type(row.link) ~= "string" then return false end
-    local linkID = tonumber(row.link:match("item:(%d+)"))
+    local linkID = tonumber(match(row.link, "item:(%d+)"))
     if linkID ~= row.itemID then
-        row.valued = true
         if self.scan then self.scan.invalidRows = self.scan.invalidRows + 1 end
         return true
     end
     local ok, name, _, quality, _, _, _, _, _, _, _, vendor = pcall(items().GetItemInfo, row.link)
     if not ok or not name or vendor == nil then return false end
-    row.valued = true
-    if type(name) ~= "string" or name == "" or not integer(vendor, 0) or not integer(quality, 0, 7) or vendor > math.floor(MAX_INTEGER / row.quantity) then
+    if type(name) ~= "string" or name == "" or not integer(vendor, 0) or not integer(quality, 0, 7) or vendor > floor(MAX_INTEGER / row.quantity) then
         if self.scan then self.scan.invalidRows = self.scan.invalidRows + 1 end
         return true
     end
-    row.name, row.quality, row.vendor = name, quality, vendor
-    self.candidates = self.candidates or {}
-    self.candidates[#self.candidates + 1] = row
+    -- Candidates stay slim (7 fields); name/value/profit/roi are filled only for deals.
+    row.quality, row.vendor = quality, vendor
+    local candidates = self.candidates
+    if not candidates then candidates = {}; self.candidates = candidates end
+    candidates[#candidates + 1] = row
     local metrics = self.Evaluate(row, self.db.settings, GetMoney(), self.account and self.account.spent or 0)
     if metrics then
-        row.value, row.profit, row.roi = metrics.value, metrics.profit, metrics.roi
-        self.results[#self.results + 1] = row
+        row.name, row.value, row.profit, row.roi = name, metrics.value, metrics.profit, metrics.roi
+        local results = self.results
+        results[#results + 1] = row
         self.resultsDirty = true
     end
     return true
@@ -167,10 +171,16 @@ function M:ScanProgress()
     local pending = scan.pendingCount
     local complete = scan.checked == scan.total and scan.phase ~= "waiting"
     local bucket = math.floor(scan.checked / 1000)
-    -- Sort at 1000-row checkpoints and when processing completes, never per inserted row.
-    if self.resultsDirty and (complete or scan.sortBucket ~= bucket) then
-        scan.sortBucket = bucket
-        self:SortResults()
+    -- Amortized sorting: when the last pending row resolves, the first time processing
+    -- completes, or when results have grown SORT_GROWTH-fold since the previous sort.
+    if self.resultsDirty then
+        local count = #self.results
+        if (complete and (pending == 0 or not scan.sortedComplete))
+            or (count >= MIN_SORT and count >= (scan.sortedCount or 0) * SORT_GROWTH) then
+            if complete then scan.sortedComplete = true end
+            self:SortResults()
+            scan.sortedCount = count
+        end
     end
     if (scan.logBucket ~= bucket or (complete and not scan.logComplete)) then
         scan.logBucket, scan.logComplete = bucket, complete
@@ -206,17 +216,19 @@ function M:ReadSnapshot()
     local function chunk()
         if not current(self, scan, generation) then return end
         local clock = debugprofilestop
+        local api = auction()
+        local getInfo, getLink = api.GetReplicateItemInfo, api.GetReplicateItemLink
         local started = type(clock) == "function" and clock() or nil
         local limit, processed = scan.total, 0
         if not started then limit = math.min(index + CHUNK_SIZE, scan.total) end
         while index < limit do
             -- pcall shifts the documented return positions by one; avoid a per-row result table.
             local infoOK, name, _, quantity, quality, _, _, _, _, _, cost, _, _, _, _, _, _, itemID =
-                pcall(auction().GetReplicateItemInfo, index)
-            local linkOK, link = pcall(auction().GetReplicateItemLink, index)
+                pcall(getInfo, index)
+            local linkOK, link = pcall(getLink, index)
             if infoOK and integer(itemID, 1, 2147483647) and integer(cost, 1) and integer(quantity, 1) then
-                local row = { name = name, quantity = quantity, quality = quality,
-                    cost = cost, itemID = itemID, link = linkOK and link or nil, snapshotIndex = index }
+                local row = { quantity = quantity, quality = quality, cost = cost, itemID = itemID,
+                    link = linkOK and link or nil, snapshotIndex = index }
                 if not self:ValueRow(row) then self:AddPendingRow(scan, row) end
             elseif not (infoOK and cost == 0) then scan.invalidRows = scan.invalidRows + 1 end
             index = index + 1

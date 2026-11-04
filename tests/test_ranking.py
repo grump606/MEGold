@@ -39,7 +39,7 @@ assert(#M.queue.rows == 2)
 assert(M.queue.rows[1].name == "best" and M.queue.rows[2].name == "mid")
 assert(M.results[1].name == "best" and M.results[3].name == "low") -- UI order matches the buy order
 
--- Rows are only appended while scanning; sorting happens at checkpoints, not per insert.
+-- Rows are only appended while scanning; sorting is amortized, not per insert.
 reset()
 local sorts, realSort = 0, table.sort
 table.sort = function(...) sorts = sorts + 1; return realSort(...) end
@@ -58,6 +58,25 @@ for i = 2, #M.results do
     local x, y = M.results[i - 1], M.results[i]
     assert(x.profit > y.profit or (x.profit == y.profit and x.snapshotIndex < y.snapshotIndex))
 end
+-- Amortized policy: mid-scan sorts only after >= 2x growth (and >= 256 results), plus completion.
+reset()
+sorts = 0
+table.sort = function(...) sorts = sorts + 1; return realSort(...) end
+M.results, M.candidates = {}, {}
+M.scan = { phase = "processing", pendingByItem = {}, failedItems = {}, pendingCount = 0,
+    failedRows = 0, invalidRows = 0, checked = 0, total = 5000 }
+for i = 0, 99 do M:ValueRow(row(i, 2 + (i * 7) % 11, 150)) end
+M.scan.checked = 100; M:ScanProgress(); assert(sorts == 0) -- below the minimum size
+for i = 100, 299 do M:ValueRow(row(i, 2 + (i * 7) % 11, 150)) end
+M.scan.checked = 300; M:ScanProgress(); assert(sorts == 1 and not M.resultsDirty)
+for i = 300, 499 do M:ValueRow(row(i, 2 + (i * 7) % 11, 150)) end
+M.scan.checked = 500; M:ScanProgress(); assert(sorts == 1 and M.resultsDirty) -- < 2x since last sort
+for i = 500, 599 do M:ValueRow(row(i, 2 + (i * 7) % 11, 150)) end
+M.scan.checked = 600; M:ScanProgress(); assert(sorts == 2 and not M.resultsDirty)
+M:StopScan(); assert(sorts == 2) -- already sorted
+M.scan = nil
+table.sort = realSort
+
 -- A scan stopped mid-way still leaves a sorted list before a batch is built.
 M.scan = { phase = "processing", pendingByItem = {}, failedItems = {}, pendingCount = 0,
     failedRows = 0, invalidRows = 0, checked = 0, total = 10 }

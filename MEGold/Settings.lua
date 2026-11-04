@@ -30,14 +30,31 @@ function M.ValidateSettings(values)
     return validated
 end
 function M:Refilter()
-    self.results = {}
-    for _, row in ipairs(self.candidates or {}) do
-        local metrics = self.Evaluate(row, self.db.settings, row.demo and 10000000 or GetMoney(), self.account and self.account.spent or 0)
+    local settings, evaluate = self.db.settings, self.Evaluate
+    local money, spent = GetMoney(), self.account and self.account.spent or 0
+    local itemAPI = M.Client and M.Client.Items or C_Item
+    local getInfo = itemAPI and itemAPI.GetItemInfo
+    local candidates, results, n = self.candidates or {}, {}, 0
+    for i = 1, #candidates do
+        local row = candidates[i]
+        local metrics = evaluate(row, settings, row.demo and 10000000 or money, spent)
         if metrics then
+            if row.name == nil then
+                -- Non-deal candidates carry no name; resolve it now, tolerating missing item data.
+                local ok, name
+                if row.link and getInfo then ok, name = pcall(getInfo, row.link) end
+                row.name = ok and type(name) == "string" and name ~= "" and name or ("Item " .. row.itemID)
+            end
             row.value, row.profit, row.roi = metrics.value, metrics.profit, metrics.roi
-            self.results[#self.results + 1] = row
+            n = n + 1
+            results[n] = row
+        elseif row.profit ~= nil then
+            -- No longer a deal: drop result-only fields so retained rows stay slim.
+            row.value, row.profit, row.roi = nil, nil, nil
+            if row.link then row.name = nil end
         end
     end
+    self.results = results
     self:SortResults()
     self.page = 1
     self:Refresh()

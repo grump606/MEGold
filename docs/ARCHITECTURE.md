@@ -91,9 +91,12 @@ A corrupted `spent` counter stays at its maximum; recovery never restores buying
 ## Deal ranking
 
 `M.results` is ordered by `CompareDeals`: profit desc, return desc, cost asc, then
-`snapshotIndex`. `ValueRow` appends unsorted and flags `resultsDirty`; `SortResults` runs at
-1000-row progress checkpoints, scan completion, `StopScan`, `Refilter`, `Demo` and always in
-`BuildBatch`, so batches buy the best deals. Mid-scan pages may show an unsorted tail.
+`snapshotIndex`. `ValueRow` appends unsorted and flags `resultsDirty`. Sorting is amortized:
+`ScanProgress` sorts when processing completes (first time, and again when the last pending
+row resolves), or mid-scan only once there are at least 256 results and the count has doubled
+since the previous sort, so total sort work is O(n log n) (101 sorts -> 6 on a 100k-row scan
+with 5.6% deals). `StopScan`, `Refilter`, `Demo` and always `BuildBatch` also sort, so batches
+buy the best deals. Mid-scan pages may show an unsorted tail.
 
 ## Scan performance
 
@@ -102,18 +105,22 @@ A corrupted `spent` counter stays at its maximum; recovery never restores buying
 without it, it falls back to fixed 100-row chunks so tests stay deterministic. Rows are built
 directly from `pcall` returns without a per-row temporary result table.
 
-`ScanProgress` still sorts and logs at 1000-row buckets, but `SetStatus` (which refreshes the
+`ScanProgress` logs at 1000-row buckets, and `SetStatus` (which refreshes the
 window) is throttled to bucket changes, the transition to completion, the last pending row
 resolving, and every 20th call otherwise. The final status text is always emitted.
 
 Memory tradeoff: `self.candidates` retains every valued row so `Refilter` can loosen or
-tighten filters in both directions without a rescan. Rows are plain tables with no closures:
-`name`, `quality`, `vendor`, `quantity`, `cost`, `itemID`, `link`, `snapshotIndex`, `valued`,
-plus `value`/`profit`/`roi` recomputed on each `Refilter`. Each candidate costs roughly one
-12-field table plus its link string, so a very large auction house (hundreds of thousands of
-valued rows) holds tens of megabytes until the next scan, `Demo` or reload. Invalid or
-unvalued rows are never retained. Dropping fields such as `link` would break exact-variant
-pricing, tooltips and queue identity checks, so they are kept deliberately.
+tighten filters in both directions without a rescan. Rows are plain tables with no closures.
+A non-deal candidate has 7 fields (`quality`, `vendor`, `quantity`, `cost`, `itemID`, `link`,
+`snapshotIndex`), which fits Lua's 8-node hash part; `name`, `value`, `profit` and `roi` exist
+only on rows that are results (`ValueRow` sets them for deals, `Refilter` fills them, resolving
+the name through `GetItemInfo(link)` with an `Item <id>` fallback, and clears them again when a
+row stops qualifying). Measured on a synthetic 100k-row scan: 730 -> 428 B/row retained, scan
+CPU 1.06 s -> 0.48 s. Rows where every listing is a deal still cost ~750 B/row (11 fields ->
+16-node table). Invalid or unvalued rows are never retained. `link` is kept deliberately:
+dropping it would break exact-variant pricing, tooltips and queue identity checks.
+`Refilter` hoists `GetMoney()`/spent out of its loop (about 0.19 s per 100k rows, dominated by
+`Evaluate`'s own per-call allocations in `Rules.lua`).
 
 `Inventory.lua` debounces `BAG_UPDATE_DELAYED`, `PLAYER_ENTERING_WORLD` and `MERCHANT_CLOSED`:
 the first event schedules a single 0.5 s timer (token-guarded) and later events in the window

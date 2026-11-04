@@ -2,12 +2,13 @@ local _, M = ...
 -- Pure strategy rules: all money is integer copper; cost is for the entire lot.
 local MAX_INTEGER = 9007199254740991
 local integer = M.Integer
+local LIMIT_FIELDS = { "minProfit", "minReturn", "maxCost", "budget", "reserve" } -- built once, not per call
 function M.Evaluate(deal, settings, money, spent)
     if type(deal) ~= "table" or not integer(deal.vendor, 1) then return nil, "unknown vendor value" end
     if not integer(deal.cost, 1) or not integer(deal.quantity, 1) or not integer(deal.itemID, 1) then return nil, "invalid lot" end
     if type(settings) ~= "table" or type(settings.ignored) ~= "table" or type(settings.buyRarities) ~= "table" then return nil, "invalid settings" end
-    for _, field in ipairs({ "minProfit", "minReturn", "maxCost", "budget", "reserve" }) do
-        if not integer(settings[field]) then return nil, "invalid settings" end
+    for i = 1, #LIMIT_FIELDS do
+        if not integer(settings[LIMIT_FIELDS[i]]) then return nil, "invalid settings" end
     end
     if not integer(money) or not integer(spent or 0) then return nil, "invalid balance" end
     if settings.ignored[deal.itemID] then return nil, "ignored" end

@@ -7,6 +7,9 @@
 - Deals are now ranked by profit, return, then lower cost; Prepare Batch buys the best deals first.
 - Added audited `/meg unlock` recovery for storage locks (refuses pending transactions, future schemas and locks that would re-trigger).
 - Scan snapshot reads are time-budgeted (about 8 ms per frame) with a fixed-chunk fallback.
+- Scan sorting is amortized (final sort plus mid-scan sorts only on 2x result growth): 100k-row benchmark 101 sorts -> 6, scan 1.06 s -> 0.48 s.
+- Non-deal candidate rows are slimmed to 7 fields (name/value/profit/roi only on results, filled by `Refilter`): retained memory 730 -> 428 B/row. `Refilter` hoists balance lookups out of its loop.
+- Added `tests/bench_scan.py` scan benchmark (not part of the test run).
 - Scan progress status updates are throttled instead of refreshing the window on every row.
 - Inventory reconciliation is debounced (single 0.5 s timer) and computes item identities once per pass.
 - Split `ObserveVendor` into smaller steps with dedicated regression tests.
