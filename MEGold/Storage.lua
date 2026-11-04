@@ -1,7 +1,7 @@
 local _, M = ...
 -- Schema changes are additive. Financial array indexes are durable identifiers.
 local SCHEMA, MAX_INTEGER = 1, 9007199254740991
-local DAY, RETENTION = 86400, 30 * 86400
+local RETENTION = 30 * 86400
 local integer = M.Integer
 local function now() return GetServerTime and GetServerTime() or 0 end
 local function copy(value, depth, seen, budget)

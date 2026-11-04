@@ -213,14 +213,14 @@ function M:ReadSnapshot()
         if not started then limit = math.min(index + CHUNK_SIZE, scan.total) end
         while index < limit do
             -- pcall shifts the documented return positions by one; avoid a per-row result table.
-            local ok, name, _, quantity, quality, _, _, _, _, _, cost, _, _, _, _, _, _, itemID =
+            local infoOK, name, _, quantity, quality, _, _, _, _, _, cost, _, _, _, _, _, _, itemID =
                 pcall(auction().GetReplicateItemInfo, index)
             local linkOK, link = pcall(auction().GetReplicateItemLink, index)
-            if ok and integer(itemID, 1, 2147483647) and integer(cost, 1) and integer(quantity, 1) then
+            if infoOK and integer(itemID, 1, 2147483647) and integer(cost, 1) and integer(quantity, 1) then
                 local row = { name = name, quantity = quantity, quality = quality,
                     cost = cost, itemID = itemID, link = linkOK and link or nil, snapshotIndex = index }
                 if not self:ValueRow(row) then self:AddPendingRow(scan, row) end
-            elseif not (ok and cost == 0) then scan.invalidRows = scan.invalidRows + 1 end
+            elseif not (infoOK and cost == 0) then scan.invalidRows = scan.invalidRows + 1 end
             index = index + 1
             processed = processed + 1
             if started and processed >= MIN_ROWS and clock() - started >= FRAME_BUDGET_MS then break end

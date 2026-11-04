@@ -43,6 +43,7 @@ C_AuctionHouse = {
     end,
     GetReplicateItemInfo = function(index)
         local row = listingRows[index + 1]
+        if row.apiError then error("info failed") end
         return "Item", nil, row.quantity or 5, 1, nil, nil, nil, nil, nil, row.cost or 300,
             nil, nil, nil, nil, nil, nil, row.id
     end,
@@ -120,6 +121,11 @@ cache[3] = math.huge
 M:StartScan(); M:ReadSnapshot()
 assert(not M.scan and #M.results == 0 and M.lastScan.invalid == 3)
 reset({{id = 1}}); cache[1] = -1
+M:StartScan(); M:ReadSnapshot()
+assert(not M.scan and #M.results == 0 and M.lastScan.invalid == 1)
+
+-- A row without a buyout (cost 0) is skipped silently; a row whose info call raises is invalid.
+reset({{id = 1, cost = 0}, {id = 2, apiError = true}})
 M:StartScan(); M:ReadSnapshot()
 assert(not M.scan and #M.results == 0 and M.lastScan.invalid == 1)
 
