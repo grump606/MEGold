@@ -3,6 +3,21 @@
 Personal vendor-flip addon for WoW Forever. Version 0.6 hardens transaction safety,
 saved-data recovery, scanning and test coverage. It remains a preview pending live testing.
 
+## Disclaimer and AI assistance
+
+**Use at your own risk.** MEGold is experimental software provided as is, without
+warranties. Bugs or unexpected game-client behavior may cause incorrect results,
+loss of in-game gold or items, or loss of saved data. Back up your settings and test
+with small quantities before relying on it.
+
+**Created with AI assistance.** The code, tests and documentation were developed with
+assistance from AI tools. AI-assisted development and automated tests do not guarantee
+correctness, security, compatibility, or compliance with Blizzard's rules.
+
+MEGold is an independent personal project and is not affiliated with, endorsed by,
+or certified by Blizzard Entertainment. You are responsible for following the rules
+applicable to your game and account.
+
 ## Install
 
 Built zips are distributed via GitHub Releases and are not tracked in the repository.
