@@ -23,7 +23,9 @@ function sale()
 end
 ''')
 module = lua.globals().M
-lua.execute((ROOT / "MEGold" / "Storage.lua").read_text(encoding="utf-8"), "MEGold", module)
+lua.execute('M.defaults = { batchSize = 10, minProfit = 1, minReturn = 0, maxCost = 100000, budget = 1000000, reserve = 0 }')
+for filename in ("Util.lua", "Storage.lua"):
+    lua.execute((ROOT / "MEGold" / filename).read_text(encoding="utf-8"), "MEGold", module)
 lua.execute('''
 local db = M:InitializeStorage(nil)
 assert(db.schemaVersion == 1 and db.settings.batchSize == 10)

@@ -1,12 +1,5 @@
 local _, M = ...
-local fields = {
-    { "minProfit", "Minimum profit (copper)", 0, 100000000000 },
-    { "minReturn", "Minimum return (%)", 0, 1000000 },
-    { "maxCost", "Maximum purchase (copper)", 1, 100000000000 },
-    { "budget", "Session budget (copper)", 0, 100000000000 },
-    { "reserve", "Gold reserve (copper)", 0, 100000000000 },
-    { "batchSize", "Deals per batch (1–10)", 1, 10 },
-}
+local fields = M.SettingsSchema
 function M.ParseItemIDs(text)
     local ids = {}
     for token in text:gmatch("[^,%s]+") do
@@ -45,6 +38,7 @@ function M:Refilter()
             self.results[#self.results + 1] = row
         end
     end
+    if self.SortResults then self:SortResults() end
     self.page = 1
     self:Refresh()
 end

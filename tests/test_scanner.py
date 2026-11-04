@@ -56,7 +56,7 @@ function reset(rows)
 end
 ''')
 module = lua.globals().M
-for source in ("Rules.lua", "Scanner.lua"):
+for source in ("Util.lua", "Rules.lua", "Scanner.lua"):
     lua.execute((ROOT / "MEGold" / source).read_text(encoding="utf-8"), "MEGold", module)
 lua.execute('''
 -- A missing/unsupported client adapter blocks scanning before calling any API.

@@ -54,13 +54,35 @@ def make_queue_runtime():
     end
     ''')
     module = lua.globals().M
-    for filename in ("Rules.lua", "State.lua", "Queue.lua"):
+    for filename in ("Util.lua", "Rules.lua", "State.lua", "Queue.lua"):
         lua.execute((ROOT / "MEGold" / filename).read_text(encoding="utf-8"), "MEGold", module)
     return lua, module
 
 
-def make_vendor_runtime():
+def make_vendor_runtime(capture_events=False):
     lua, module = make_queue_runtime()
+    if capture_events:
+        # Register real OnEvent handlers; fireEvent(name, ...) dispatches like the client.
+        # runTimers() runs (and clears) the delayed callbacks queued so far, in order.
+        lua.execute('''
+        frames = {}
+        function CreateFrame()
+            local frame = { events = {} }
+            function frame:RegisterEvent(event) self.events[event] = true end
+            function frame:SetScript(name, fn) self[name] = fn end
+            table.insert(frames, frame)
+            return frame
+        end
+        function fireEvent(event, ...)
+            for _, frame in ipairs(frames) do
+                if frame.events[event] and frame.OnEvent then frame.OnEvent(frame, event, ...) end
+            end
+        end
+        function runTimers()
+            local pending = timers; timers = {}
+            for _, callback in ipairs(pending) do callback() end
+        end
+        ''')
     lua.execute('''
     bags, buyback, cursor = {}, {}, nil
     NUM_TOTAL_EQUIPPED_BAG_SLOTS = 0

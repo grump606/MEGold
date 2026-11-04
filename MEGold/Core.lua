@@ -64,6 +64,7 @@ SlashCmdList.MEGOLD = function(message)
         return
     end
     if message == "demo" then M:Demo()
+    elseif message == "unlock" then M:RequestUnlock()
     elseif message == "ledger" then M:ShowLedger()
     elseif message == "vendor" then
         if M.merchantOpen then M:ShowVendor() else M:SetStatus("Open a vendor first."); M:Show() end

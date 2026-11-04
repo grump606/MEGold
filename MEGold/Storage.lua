@@ -2,10 +2,7 @@ local _, M = ...
 -- Schema changes are additive. Financial array indexes are durable identifiers.
 local SCHEMA, MAX_INTEGER = 1, 9007199254740991
 local DAY, RETENTION = 86400, 30 * 86400
-local function integer(value, minimum, maximum)
-    return type(value) == "number" and value == value and value >= (minimum or 0)
-        and value <= (maximum or MAX_INTEGER) and value % 1 == 0
-end
+local integer = M.Integer
 local function now() return GetServerTime and GetServerTime() or 0 end
 local function copy(value, depth, seen, budget)
     depth, seen, budget = depth or 0, seen or {}, budget or { 10000 }
@@ -58,7 +55,7 @@ local function numericMap(value, booleans)
     return result
 end
 local function validLink(value) return type(value) == "string" and #value <= 4096 and value:match("item:%d+") ~= nil end
-local function identity(link) return type(link) == "string" and link:match("(item:[^|]+)") or nil end
+local identity = M.ItemIdentity
 local function validPurchase(p, pending)
     if type(p) ~= "table" or not integer(p.itemID, 1, 2147483647) or not integer(p.quantity, 1)
         or not integer(p.cost, pending and 1 or 0) then return false end
@@ -187,7 +184,7 @@ function M:ValidateAccount(raw)
             if not valid then lock(account, "vendorPending.allocations", pending.allocations, "invalid reserved purchase references") end
         end
     end
-    for _, field in ipairs({ "reviews", "budgetHistory", "vendorReviews" }) do
+    for _, field in ipairs({ "reviews", "budgetHistory", "vendorReviews", "recoveries" }) do
         if account[field] == nil then account[field] = {}
         elseif not listLength(account[field]) then lock(account, field, account[field], "invalid audit history"); account[field] = {} end
     end
@@ -281,11 +278,11 @@ function M:InitializeStorage(raw)
     local settings = type(db.settings) == "table" and db.settings or {}
     if db.settings ~= nil and type(db.settings) ~= "table" then lock(db, "settings", db.settings, "invalid settings") end
     db.settings = settings
-    local defaults = self.defaults or { minProfit = 1, minReturn = 0, maxCost = 100000, budget = 1000000, reserve = 0, batchSize = 10 }
-    local bounds = { minProfit = {0, 100000000000}, minReturn = {0, 1000000}, maxCost = {1, 100000000000}, budget = {0, 100000000000}, reserve = {0, 100000000000}, batchSize = {1, 10} }
-    for key, bound in pairs(bounds) do
+    local defaults = self.defaults -- Core.lua precedes Storage.lua in the TOC
+    for _, field in ipairs(self.SettingsSchema) do
+        local key = field[1]
         if settings[key] == nil then settings[key] = defaults[key]
-        elseif not integer(settings[key], bound[1], bound[2]) then lock(db, "settings." .. key, settings[key], "invalid limit"); settings[key] = defaults[key] end
+        elseif not integer(settings[key], field[3], field[4]) then lock(db, "settings." .. key, settings[key], "invalid limit"); settings[key] = defaults[key] end
     end
     for _, key in ipairs({ "ignored", "neverSell" }) do
         local value = settings[key] == nil and {} or numericMap(settings[key], true)

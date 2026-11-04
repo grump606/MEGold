@@ -8,7 +8,8 @@ lua = LuaRuntime(unpack_returned_tuples=True)
 module = lua.table()
 for source in (Path(__file__).parents[1] / "MEGold").glob("*.lua"):
     lua.execute("assert(loadstring(...))", source.read_text(encoding="utf-8"))
-lua.execute((Path(__file__).parents[1] / "MEGold" / "Rules.lua").read_text(), "MEGold", module)
+for name in ("Util.lua", "Rules.lua"):
+    lua.execute((Path(__file__).parents[1] / "MEGold" / name).read_text(), "MEGold", module)
 settings = lua.table_from(dict(minProfit=1, minReturn=0, maxCost=10000,
                               budget=10000, reserve=0,
                               ignored=lua.table(), buyRarities=lua.table()))

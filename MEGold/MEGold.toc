@@ -5,9 +5,11 @@
 ## Version: 0.6.0
 ## SavedVariables: MEGoldDB
 Core.lua
+Util.lua
 Client.lua
 State.lua
 Storage.lua
+Recovery.lua
 Diagnostics.lua
 Rules.lua
 Scanner.lua

@@ -1,10 +1,7 @@
 local _, M = ...
 -- Pure strategy rules: all money is integer copper; cost is for the entire lot.
 local MAX_INTEGER = 9007199254740991
-local function integer(value, minimum)
-    return type(value) == "number" and value == value and value >= (minimum or 0)
-        and value <= MAX_INTEGER and value % 1 == 0
-end
+local integer = M.Integer
 function M.Evaluate(deal, settings, money, spent)
     if type(deal) ~= "table" or not integer(deal.vendor, 1) then return nil, "unknown vendor value" end
     if not integer(deal.cost, 1) or not integer(deal.quantity, 1) or not integer(deal.itemID, 1) then return nil, "invalid lot" end
