@@ -105,7 +105,15 @@ strict UI doubles, and isolated test execution.
 
 ## Resume point
 
-Read this file, `docs/ARCHITECTURE.md`, and the affected modules. Fix priorities 1 and
-2 with regression tests, run `python tests/run_all.py`, update documentation/changelog,
-and package a new preview. Do not claim live verification or production readiness from
-simulated tests alone. Line numbers above are references to version 0.6 and may shift.
+Updated November 4, 2026. Release is on hold until live testing.
+
+- Code-side review items are done and pushed: P1/P2 fixes, deal ranking, `/meg unlock`, scan
+  performance, shared `Util.lua`, `ObserveVendor` split with atomic recording, load-order guards
+  removed, CI (tests + luacheck) green. 18 test scripts pass.
+- Version stays 0.6.0; changes are under "Unreleased" in CHANGELOG.md. Do not cut a release or
+  enable automatic selling before the live checklist passes.
+- Next: run `docs/LIVE_TEST_CHECKLIST.md` in the Forever client (cheap single transactions first),
+  keep `/meg logs` reports for failures, then decide the version number and package.
+- Open minor items: corrupt `spent` counter stays at the maximum after `/meg unlock`; the
+  "allocations exceed sold" lock is not unlockable; account-level locks copied to other
+  characters need their own `/meg unlock`.
