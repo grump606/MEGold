@@ -1,9 +1,7 @@
 local _, M = ...
 local AH = M.Client and M.Client.Auction or C_AuctionHouse or {}
 local Items = M.Client and M.Client.Items or C_Item or {}
-local function identity(link)
-    return link and link:match("(item:[^|]+)")
-end
+local identity = M.ItemIdentity
 function M:InitializeQueue()
     local key = UnitGUID("player")
     if not key then return false end
@@ -40,6 +38,8 @@ function M:BuildBatch()
     if self:QueueBusy() then return end
     if not self.ahOpen then return self:SetStatus("Open the auction house first.") end
     self:StopScan()
+    -- Buy the best deals first; the list may still hold unsorted rows from a scan in progress.
+    if self.SortResults then self:SortResults() end
     local q = self.queue
     q.rows, q.index, q.phase = {}, 1, "idle"
     local reserved = 0
