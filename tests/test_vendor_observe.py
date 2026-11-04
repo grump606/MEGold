@@ -110,5 +110,30 @@ snap = snapshotRef()
 buyback = {row(1, 100), row(1, 100), row(1, 100)}
 M:ObserveVendor()
 assert(snapshotRef() == snap, "snap"); assert(#(M.account.sales or {}) == 0, "sales"); assert((p.sold or 0) == 0, "sold")
+
+-- 10. Own-sale check with a run index past the end must not raise.
+vendorReset(3); addPurchase(3, 100, 3)
+for i = 1, 12 do buyback[i] = {link = LINK, quantity = 3, price = 300} end
+M.vendorSnapshot.rows = M:ReadBuyback()
+M.vendorRun = {phase = "selling", rows = {}, index = 1}
+assert(pcall(M.ObserveVendor, M), "ObserveVendor raised with run.index past the rows")
+M.vendorRun = nil
+
+-- 11. Partial recording is rolled back: two new rows, the second cannot be allocated.
+vendorReset(10); p = addPurchase(3, 100, 3)
+M.vendorSnapshot.rows = {}
+snap = snapshotRef()
+buyback = {{link = LINK, quantity = 1, price = 100}, {link = LINK, quantity = 1, price = 100}}
+bags[1].stackCount, funds = 8, funds + 200
+local calls, realRecord = 0, M.RecordVendorSale
+M.RecordVendorSale = function(...) calls = calls + 1; if calls == 2 then return nil end; return realRecord(...) end
+M:ObserveVendor()
+M.RecordVendorSale = realRecord
+assert(calls == 2 and M.account.vendorUncertain, "second row must fail into VendorUncertain")
+assert((p.sold or 0) == 0 and (p.costSold or 0) == 0, "earlier receipt must be rolled back")
+assert(snapshotRef() == snap, "snapshot must not be committed")
+for _, sale in ipairs(M.account.sales or {}) do assert(sale.reversed, "leftover active receipt") end
+local tally = M:GetProfitTally()
+assert(tally.flipQuantity == 0 and tally.cost == 0, "tally must exclude rolled-back receipt")
 ''')
 print("PASS: ObserveVendor identical ring, ambiguous removal, reversal, explained quantities and sale-mismatch paths")

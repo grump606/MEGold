@@ -58,6 +58,7 @@ local function confirmsOwnIdenticalSale(self, before, after, money, totals)
     local run = self.vendorRun
     if not run or run.phase ~= "selling" then return false end
     local row = run.rows[run.index]
+    if not row then return false end
     local id = self.ItemIdentity(row.link)
     local expected = {link = row.link, price = row.vendor * row.quantity, quantity = row.quantity}
     return money - before.money == row.vendor * row.quantity
@@ -133,6 +134,9 @@ local function matchesActiveSale(self, sale, after, overlap)
 end
 
 -- Records receipts for the new rows (carrying earlier receipts across the overlap).
+-- All-or-nothing: if any row cannot be allocated, receipts already recorded for earlier rows in
+-- this call are reversed (they remain in `sales` flagged reversed) so no sale is left counted
+-- without a committed buyback snapshot linking it to its row.
 -- Output: ok (false after VendorUncertain), confirmedSale (the sale when it was recorded).
 local function recordNewSales(self, old, after, overlap, sale)
     for i = 1, overlap do after[i].receipt = old[#old - overlap + i].receipt end
@@ -142,6 +146,10 @@ local function recordNewSales(self, old, after, overlap, sale)
         local flipQuantity = sale and sale.row.quantity or math.min(row.quantity, self:AvailableFlips(row.link, true))
         row.receipt = self:RecordVendorSale(row.link, row.quantity, row.price, flipQuantity, sale and sale.row.allocations)
         if not row.receipt then
+            for j = i - 1, overlap + 1, -1 do
+                self:ReverseVendorSale(after[j].receipt)
+                after[j].receipt = nil
+            end
             self:VendorUncertain("sale could not be allocated to its purchases")
             return false
         end
