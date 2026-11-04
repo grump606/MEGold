@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+- Fixed inventory baseline race: bag decreases are reconciled before merchant, sale or collection baselines are adopted; verified sales only excuse the quantities they explain.
+- Fixed `MarkCollected` raising a nil-function error when bag APIs are missing; the Ledger collect button is gated on inventory support.
+- Deals are now ranked by profit, return, then lower cost; Prepare Batch buys the best deals first.
+- Added audited `/meg unlock` recovery for storage locks (refuses pending transactions, future schemas and locks that would re-trigger).
+- Scan snapshot reads are time-budgeted (about 8 ms per frame) with a fixed-chunk fallback.
+- Scan progress status updates are throttled instead of refreshing the window on every row.
+- Inventory reconciliation is debounced (single 0.5 s timer) and computes item identities once per pass.
+- Split `ObserveVendor` into smaller steps with dedicated regression tests.
+- Added CI workflow and `.luacheckrc` configuration.
+- Release zips are no longer tracked in git (`releases/` moved out of the repository).
+- Deduplicated helpers: shared `Integer`/`ItemIdentity` and a single numeric settings schema live in `Util.lua`, consumed by Settings and Storage.
+- Added regression tests for the above (18 isolated scripts).
+
 ## 0.6.0
 - Fixed automatic sale allocation consuming older held purchases; review reserves exact purchase quantities.
 - Fixed earlier sale timers timing out later sales in the same batch with per-sale tokens.

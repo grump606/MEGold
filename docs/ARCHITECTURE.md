@@ -23,6 +23,13 @@ Modules share the addon's namespace; domain records and contracts below are the 
 They are not independent object instances. Further strategies should supply valuation
 rules and client adapters rather than duplicating purchase/accounting flows.
 
+`Util.lua` (loaded right after `Core.lua`) holds the shared `M.Integer(value, minimum, maximum)`
+validator (default minimum 0, default maximum 2^53-1; rejects NaN, infinities and fractions),
+`M.ItemIdentity(link)`, and `M.SettingsSchema`, the one list of numeric settings
+(`key, label, minimum, maximum`) used by both `Settings.lua` (UI and `ValidateSettings`) and
+`Storage.lua` (load validation). Defaults come from `M.defaults` in `Core.lua`; Storage keeps no
+fallback copy, so test fixtures that load Storage must define `M.defaults`.
+
 ## Buying state transitions
 
 | Phase | Allowed next actions |
@@ -71,6 +78,47 @@ diagnostics and schema versions. Invalid financial data is quarantined and locks
 transactions; defaulting missing or malformed money must not restore buying capacity.
 Newer unknown schemas are preserved under `futureData` behind a locked UI shell.
 Character initialization waits for a stable GUID instead of creating a temporary key.
+
+`Recovery.lua` (`/meg unlock`) is the only path that clears `storageLocked`. It refuses when
+`pending`/`vendorPending`/`vendorRun` exist, when the db is a future/unsupported schema
+(`futureData`, `future-preserved`, or `schemaVersion` above `STORAGE_SCHEMA`), and when
+`ValidateAccount` on a lock-free copy would lock again (data not already quarantined). After
+a StaticPopup confirmation it appends to `account.recoveries` (bounded to 200, validated on
+load), keeps `quarantine` samples, clears the account lock and the db-level lock, and logs
+via `LogState`. Quarantined placeholders are valid records, so the next load does not re-lock.
+A corrupted `spent` counter stays at its maximum; recovery never restores buying capacity.
+
+## Deal ranking
+
+`M.results` is ordered by `CompareDeals`: profit desc, return desc, cost asc, then
+`snapshotIndex`. `ValueRow` appends unsorted and flags `resultsDirty`; `SortResults` runs at
+1000-row progress checkpoints, scan completion, `StopScan`, `Refilter`, `Demo` and always in
+`BuildBatch`, so batches buy the best deals. Mid-scan pages may show an unsorted tail.
+
+## Scan performance
+
+`ReadSnapshot` processes listings in frame slices. With `debugprofilestop` it works for about
+8 ms per frame (checked once per row, never fewer than 25 rows so slow clients progress);
+without it, it falls back to fixed 100-row chunks so tests stay deterministic. Rows are built
+directly from `pcall` returns without a per-row temporary result table.
+
+`ScanProgress` still sorts and logs at 1000-row buckets, but `SetStatus` (which refreshes the
+window) is throttled to bucket changes, the transition to completion, the last pending row
+resolving, and every 20th call otherwise. The final status text is always emitted.
+
+Memory tradeoff: `self.candidates` retains every valued row so `Refilter` can loosen or
+tighten filters in both directions without a rescan. Rows are plain tables with no closures:
+`name`, `quality`, `vendor`, `quantity`, `cost`, `itemID`, `link`, `snapshotIndex`, `valued`,
+plus `value`/`profit`/`roi` recomputed on each `Refilter`. Each candidate costs roughly one
+12-field table plus its link string, so a very large auction house (hundreds of thousands of
+valued rows) holds tens of megabytes until the next scan, `Demo` or reload. Invalid or
+unvalued rows are never retained. Dropping fields such as `link` would break exact-variant
+pricing, tooltips and queue identity checks, so they are kept deliberately.
+
+`Inventory.lua` debounces `BAG_UPDATE_DELAYED`, `PLAYER_ENTERING_WORLD` and `MERCHANT_CLOSED`:
+the first event schedules a single 0.5 s timer (token-guarded) and later events in the window
+add nothing. Merchant/vendor-run/uncertainty gating is evaluated when the timer fires.
+`ReconcileInventory` computes each purchase's `ItemIdentity` once per pass.
 
 Maintenance runs at character initialization and normal logout. Receipts older than
 30 days may be summarized only when they are not referenced by current buyback or pending

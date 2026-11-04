@@ -5,6 +5,8 @@ saved-data recovery, scanning and test coverage. It remains a preview pending li
 
 ## Install
 
+Built zips are distributed via GitHub Releases and are not tracked in the repository.
+
 Copy the `MEGold` folder into your Forever client's `Interface/AddOns` folder.
 Enable it in the AddOns menu. Interface 16001 targets the known beta API and must be
 checked against the launch client. No game installation is modified by this repository.
@@ -12,6 +14,7 @@ Features require the Forever interface family and their complete API contract; u
 clients or missing APIs disable the affected actions. Character state initializes only
 after a stable player GUID is available.
 
+Deals are ranked by profit, then return, then lower cost, and batches buy the best first.
 Open `/meg` or `/megold`. `/meg demo` displays clearly labeled sample deals without
 contacting the auction house. Open an auctioneer and press **Scan AH** for real data.
 Use **Stop** to cancel local processing. The server may impose a full-scan cooldown.
@@ -106,6 +109,12 @@ startup. Malformed financial records are quarantined and transactions are locked
 than silently resetting spending or protection limits. Diagnostics include the schema
 and lock reason. Unknown newer schemas are preserved under `futureData` behind a locked
 view. Retain a backup and the diagnostic report if a storage lock appears.
+
+`/meg unlock` offers an audited recovery for locks caused by quarantined records: it lists
+the quarantined paths and reasons, asks for confirmation, keeps the quarantine samples and
+records an entry in `account.recoveries` (last 200). It refuses while a purchase or vendor
+sale is unresolved and for unsupported/newer-schema locks. It does not restore spending
+capacity: a corrupt spent counter stays at its maximum, so buying stays budget-blocked.
 
 After 30 days, settled receipts with no active buyback/pending references can be summarized
 into lifetime totals. Settled unreferenced purchases become compact placeholders. Stable

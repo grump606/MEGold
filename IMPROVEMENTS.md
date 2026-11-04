@@ -11,7 +11,7 @@ Saved November 3, 2026. Work is paused at the user's request.
 - Automatic vendor selling should not receive production approval until the P1 issue
   below is fixed and live checks pass.
 
-## Priority 1 — inventory baseline race
+## Priority 1 — inventory baseline race (FIXED, unreleased; live check pending)
 
 **Confirmed bug:** opening a merchant before delayed inventory reconciliation can
 preserve stale flip-sale eligibility and allow personal stock to be sold.
@@ -40,7 +40,7 @@ Required fix: reconcile unexplained decreases before replacing any inventory bas
 Distinguish verified sale/collection evidence from arbitrary snapshot adoption. Check
 collection confirmation as another possible way to mask an unrelated pending decrease.
 
-## Priority 2 — collection capability gate
+## Priority 2 — collection capability gate (FIXED, unreleased)
 
 **Confirmed bug:** `MarkCollected` calls `BagTotals` without checking whether the
 inventory API contract is available. With missing bag APIs, it raises a nil-function
@@ -52,7 +52,7 @@ error despite the new client capability system.
 Required fix: gate the method and button on inventory capabilities as well as storage
 and transaction state. Domain checks must protect direct calls, not just button clicks.
 
-## Priority 3 — integration regression coverage
+## Priority 3 — integration regression coverage (done for the cases below)
 
 Add tests for real registered handlers and controlled delayed callbacks covering:
 
