@@ -223,7 +223,7 @@ function M:ReadSnapshot()
         if not started then limit = math.min(index + CHUNK_SIZE, scan.total) end
         while index < limit do
             -- pcall shifts the documented return positions by one; avoid a per-row result table.
-            local infoOK, name, _, quantity, quality, _, _, _, _, _, cost, _, _, _, _, _, _, itemID =
+            local infoOK, _, _, quantity, quality, _, _, _, _, _, cost, _, _, _, _, _, _, itemID =
                 pcall(getInfo, index)
             local linkOK, link = pcall(getLink, index)
             if infoOK and integer(itemID, 1, 2147483647) and integer(cost, 1) and integer(quantity, 1) then
