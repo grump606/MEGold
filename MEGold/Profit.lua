@@ -1,14 +1,15 @@
 local _, M = ...
-local function integer(value, minimum)
-    return type(value) == "number" and value == value and value >= (minimum or 0)
-        and value <= 9007199254740991 and value % 1 == 0
-end
-function M.ItemIdentity(link) return type(link) == "string" and link:match("(item:[^|]+)") or nil end
+local integer = M.Integer
 function M.Money(amount)
     return (amount < 0 and "-" or "") .. GetCoinTextureString(math.abs(amount))
 end
 function M:MarkCollected(purchase)
     if self.vendorRun or self.account.vendorUncertain or self.account.storageLocked or (self.db and self.db.storageLocked) then return false end
+    if self.Supports and not self:Supports("inventory") then return false end
+    if not self.BagTotals then return false end
+    local totals = self:BagTotals()
+    -- Confirming one purchase must not adopt a baseline that hides another pending decrease.
+    if self.ReconcileInventory then self:ReconcileInventory(totals) end
     local found, allocated = false, 0
     for _, entry in ipairs(self.account.purchases) do
         if entry == purchase then found = true end
@@ -17,8 +18,7 @@ function M:MarkCollected(purchase)
         end
     end
     local remaining = purchase.quantity - (purchase.collected or 0)
-    if not found or remaining <= 0 or not self.BagTotals then return false end
-    local totals = self:BagTotals()
+    if not found or remaining <= 0 then return false end
     if (totals[self.ItemIdentity(purchase.link)] or 0) < allocated + remaining then return false end
     purchase.collected, purchase.collectedAt = purchase.quantity, GetServerTime()
     if self.LogState then self:LogState("collection", "Purchase marked collected", {itemID = purchase.itemID, quantity = purchase.quantity}) end

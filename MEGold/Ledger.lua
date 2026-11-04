@@ -124,7 +124,9 @@ function M:RenderLedger()
         row.text:SetText(purchase and string.format("%s x%d | Collected %d | Sold %d | %s", purchase.name or tostring(purchase.itemID),
             purchase.quantity, purchase.collected or 0, purchase.sold or 0, GetCoinTextureString(purchase.cost)) or "")
         row.collect:SetShown(purchase ~= nil); row.hold:SetShown(purchase ~= nil)
-        row.collect:SetEnabled(purchase and (purchase.collected or 0) < purchase.quantity and not self.vendorRun and not account.vendorUncertain)
+        local inventoryOk = not self.Supports or self:Supports("inventory")
+        row.collect:SetEnabled(purchase and (purchase.collected or 0) < purchase.quantity and not self.vendorRun and not account.vendorUncertain
+            and not account.storageLocked and not self.db.storageLocked and inventoryOk and true or false)
         row.hold:SetEnabled(purchase and not purchase.archived and not self.vendorRun and not account.storageLocked)
         row.hold:SetText(purchase and purchase.held and "Release hold" or "Hold for AH")
     end
