@@ -185,12 +185,47 @@ function M:QueueResults(key)
     end
     if not best then
         if self:RequestQueuePage() then return end
+        pcall(self.LogSearchMiss, self, wanted)
         q.phase = "blocked"
         return self:QueueMessage("No matching profitable lot on this results page. Skip this deal.")
     end
     q.ready, q.phase, q.readyAt = best, "ready", GetTime()
     self:QueueMessage(string.format("%d/%d: %s x%d — cost %s. Click Buy Next.%s", q.index, #q.rows,
         best.name, best.quantity, self.Money(best.cost), q.prefetch and " (pre-fetched)" or ""))
+end
+-- Records why no lot matched, so a search-key or item-identity problem is visible in /meg logs.
+-- Read-only; never allowed to disturb buying.
+function M:LogSearchMiss(wanted)
+    local q = self.queue
+    local key = q.key
+    local total = AH.GetNumItemSearchResults(key)
+    local why = { owner = 0, bought = 0, identity = 0, quantity = 0, nobuyout = 0, price = 0, profit = 0 }
+    local samples = {}
+    for i = 1, total do
+        local result = AH.GetItemSearchResultInfo(key, i)
+        if result then
+            if #samples < 3 then
+                samples[#samples + 1] = string.format("%s x%s for %s", tostring(identity(result.itemLink)),
+                    tostring(result.quantity), tostring(result.buyoutAmount))
+            end
+            if result.containsOwnerItem or result.containsAccountItem then why.owner = why.owner + 1
+            elseif self.account.bought[result.auctionID] then why.bought = why.bought + 1
+            elseif identity(result.itemLink) ~= identity(wanted.link) then why.identity = why.identity + 1
+            elseif result.quantity ~= wanted.quantity then why.quantity = why.quantity + 1
+            elseif not (result.buyoutAmount and result.buyoutAmount > 0) then why.nobuyout = why.nobuyout + 1
+            elseif result.buyoutAmount > wanted.cost then why.price = why.price + 1
+            else why.profit = why.profit + 1 end
+        end
+    end
+    local okFull, full = false, nil
+    if type(AH.HasFullItemSearchResults) == "function" then okFull, full = pcall(AH.HasFullItemSearchResults, key) end
+    self:LogState("search-miss", "No matching lot in item search", {
+        itemID = wanted.itemID, wantedLink = identity(wanted.link) or "none", wantedQuantity = wanted.quantity,
+        wantedCost = wanted.cost, keyLevel = key.itemLevel, keySuffix = key.itemSuffix, results = total,
+        fullResults = okFull and tostring(full) or "unknown", ownerOrAccount = why.owner, alreadyBought = why.bought,
+        otherIdentity = why.identity, otherQuantity = why.quantity, noBuyout = why.nobuyout, overPrice = why.price,
+        failsProfit = why.profit, sample1 = samples[1], sample2 = samples[2], sample3 = samples[3],
+        snapshotAge = self:SnapshotAgeSeconds() })
 end
 function M:BuyNext()
     local q = self.queue

@@ -6,6 +6,8 @@
 - Added modern-only UI/scan-start regression coverage; 19 isolated test scripts pass.
 
 ## Unreleased
+- Deal list now uses aligned columns (Item, Qty, Cost, Vendor, Profit, Return) with a matching header; numbers are right-aligned and long names are cut instead of wrapping.
+- A failed item search now logs a `search-miss` entry (results returned, why each was rejected, sample item identities, search-key level/suffix) to diagnose lots that are listed but not found. Read-only.
 - Snapshot wait raised from 30 s to 2 minutes, since the real server cooldown and response time are unknown. The status line states the wait, and the timeout message no longer assumes a cooldown.
 - The status line shows the age of the displayed deals ("Snapshot 45s old"; green under 30 s, yellow under 2 min, red beyond), ticking once a second. Age counts from the scan request, so a slow response never looks fresher. Quote and purchase log entries record `snapshotAge`.
 - Pre-fetch: when a scan completes, MEGold searches the best deals automatically (read-only) so the first purchase is ready when you look at the list. Nothing is quoted, bought or reserved until you click buy; a new scan, demo, manual Prepare or closing the AH discards it. Setting "Pre-fetch deals" (1 on, 0 off). Item lots older than 10 s are still re-searched at the buy click.

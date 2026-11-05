@@ -1,7 +1,27 @@
 local _, M = ...
 local money = M.Money
 local statusLine -- defined below; BuildPanel's ticker needs it
--- Builds the deal list and buying controls into `frame`. The same layout serves the standalone
+-- Column layout shared by the header and every deal row: the numeric columns are right-aligned and
+-- anchored to the row's right edge, and the item name takes the remaining width.
+local COLUMNS = { { "roi", "Return", 64 }, { "profit", "Profit", 112 }, { "value", "Vendor", 112 },
+    { "cost", "Cost", 112 }, { "quantity", "Qty", 44 } }
+local COLUMN_GAP = 10
+local function createCells(row, font)
+    local cells, offset = {}, 0
+    for _, column in ipairs(COLUMNS) do
+        local cell = row:CreateFontString(nil, "OVERLAY", font)
+        cell:SetPoint("RIGHT", row, "RIGHT", -offset, 0)
+        cell:SetWidth(column[3]); cell:SetJustifyH("RIGHT"); cell:SetWordWrap(false)
+        cells[column[1]] = cell
+        offset = offset + column[3] + COLUMN_GAP
+    end
+    local name = row:CreateFontString(nil, "OVERLAY", font)
+    name:SetPoint("LEFT", row, "LEFT", 4, 0)
+    name:SetPoint("RIGHT", row, "RIGHT", -offset, 0)
+    name:SetJustifyH("LEFT"); name:SetWordWrap(false)
+    cells.name = name
+    return cells
+end-- Builds the deal list and buying controls into `frame`. The same layout serves the standalone
 -- window and the Auction House tab, so it anchors to the frame edges instead of fixed widths.
 -- `top` reserves room for a title bar when the parent draws one.
 function M:BuildPanel(frame, top)
@@ -24,16 +44,18 @@ function M:BuildPanel(frame, top)
     frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     frame.status:SetPoint("TOPLEFT", 16, -(top + 42)); frame.status:SetPoint("TOPRIGHT", -16, -(top + 42))
     frame.status:SetJustifyH("LEFT")
-    local header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    header:SetPoint("TOPLEFT", 16, -(top + 72))
-    header:SetText("Item / quantity                         Cost                 Vendor                 Profit / return")
+    local header = CreateFrame("Frame", nil, frame)
+    header:SetHeight(18)
+    header:SetPoint("TOPLEFT", 16, -(top + 72)); header:SetPoint("TOPRIGHT", -16, -(top + 72))
+    local headings = createCells(header, "GameFontNormal")
+    headings.name:SetText("Item")
+    for _, column in ipairs(COLUMNS) do headings[column[1]]:SetText(column[2]) end
     frame.rows = {}
     for i = 1, 10 do
         local row = CreateFrame("Button", nil, frame)
         row:SetHeight(21)
         row:SetPoint("TOPLEFT", 16, -(top + 92) - (i - 1) * 22); row:SetPoint("TOPRIGHT", -16, -(top + 92) - (i - 1) * 22)
-        row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.text:SetAllPoints(); row.text:SetJustifyH("LEFT")
+        row.cells = createCells(row, "GameFontHighlightSmall")
         row:SetScript("OnEnter", function(r)
             if r.deal and r.deal.link then
                 GameTooltip:SetOwner(r, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink(r.deal.link); GameTooltip:Show()
@@ -120,8 +142,16 @@ local function renderPanel(self, panel)
     for i, widget in ipairs(panel.rows) do
         local deal = i <= size and self.results[(self.page - 1) * size + i] or nil
         widget.deal = deal
-        widget.text:SetText(deal and string.format("%s x%d    %s    %s    |cff55ff55%s (%.1f%%)|r",
-            deal.name, deal.quantity, money(deal.cost), money(deal.value), money(deal.profit), deal.roi) or "")
+        local cells = widget.cells
+        if deal then
+            cells.name:SetText(deal.name or "?")
+            cells.quantity:SetText(tostring(deal.quantity))
+            cells.cost:SetText(money(deal.cost)); cells.value:SetText(money(deal.value))
+            cells.profit:SetText("|cff55ff55" .. money(deal.profit) .. "|r")
+            cells.roi:SetText(string.format("|cff55ff55%.1f%%|r", deal.roi))
+        else
+            for _, cell in pairs(cells) do cell:SetText("") end
+        end
     end
 end
 -- Draws every visible main view (standalone window and/or Auction House tab).

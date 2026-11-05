@@ -15,7 +15,7 @@ local function widget() return setmetatable({scripts = {}, events = {}, text = "
 for _, name in ipairs({"SetSize", "SetPoint", "SetMovable", "EnableMouse", "RegisterForDrag",
     "StartMoving", "StopMovingOrSizing", "SetWidth", "SetHeight", "SetJustifyH", "SetAllPoints",
     "SetFrameStrata", "SetAutoFocus", "SetMaxLetters", "ClearFocus", "SetMultiLine", "SetFontObject",
-    "SetFocus", "HighlightText", "SetVerticalScroll", "RegisterEvent"}) do
+    "SetFocus", "HighlightText", "SetVerticalScroll", "RegisterEvent", "SetWordWrap"}) do
     methods[name] = function() end
 end
 function methods:SetScript(event, fn) self.scripts[event] = fn end
