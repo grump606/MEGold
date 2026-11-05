@@ -89,10 +89,11 @@ function M:ConfirmCommodity()
     end
     local entry = {}
     for k, v in pairs(deal) do entry[k] = v end
-    entry.status, entry.createdAt = "pending", GetServerTime()
+    entry.status, entry.createdAt, entry.moneyBefore = "pending", GetServerTime(), GetMoney()
     self.account.pending = entry
     q.phase, q.ownCall = "purchasing", true
     self:LogState("purchase-intent", "Commodity confirmation", {itemID = deal.itemID, quantity = deal.quantity, cost = deal.cost})
+    if self.BeginPurchaseCapture then self:BeginPurchaseCapture("commodity-confirm", entry.moneyBefore) end
     local ok, err = pcall(AH.ConfirmCommoditiesPurchase, deal.itemID, deal.quantity)
     if not ok then self:LogState("api-error", tostring(err), {operation = "ConfirmCommoditiesPurchase"}) end
     q.ownCall = nil
@@ -100,6 +101,8 @@ function M:ConfirmCommodity()
     self:QueueMessage("Waiting for commodity purchase confirmation…")
     C_Timer.After(15, function()
         if self.account.pending == entry then
+            self:LogState("purchase-unconfirmed", "No confirmation event", { itemID = entry.itemID, cost = entry.cost,
+                moneyBefore = entry.moneyBefore, goldChange = self:PurchaseGoldChange(entry) })
             q.phase = "uncertain"; self:QueueMessage("Commodity purchase unconfirmed. Review Transactions before continuing.")
         end
     end)

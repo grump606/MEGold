@@ -107,6 +107,11 @@ assert(saved and M.db.settings.minProfit == 100)
 table.insert(M.account.purchases, {name = "Test", itemID = 1, link = "|Hitem:1:0|h[Test]|h", quantity = 3, cost = 100})
 M:Refresh()
 assert(M.ledgerWindow.rows[1].purchase == M.account.purchases[1])
+-- An unresolved purchase shows the gold evidence next to it.
+M.account.pending = {name = "Test", itemID = 1, link = "|Hitem:1:0|h[Test]|h", quantity = 1, cost = 100, auctionID = 5, moneyBefore = GetMoney() + 100}
+M.queue.phase = "uncertain"; M:Refresh()
+assert(M.ledgerWindow.pending.text:find("UNRESOLVED", 1, true) and M.ledgerWindow.pending.text:find("fell by exactly", 1, true))
+M.account.pending = nil; M.queue.phase = "idle"; M:Refresh()
 -- Real registered background handlers must also respect missing API contracts.
 C_Container.GetContainerNumSlots = nil; C_Container.GetContainerItemInfo = nil
 M:InitializeClient()

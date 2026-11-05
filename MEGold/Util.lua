@@ -54,6 +54,39 @@ function M.AgeText(seconds)
     if seconds < 3600 then return string.format("%dm %02ds", math.floor(seconds / 60), seconds % 60) end
     return string.format("%dh %02dm", math.floor(seconds / 3600), math.floor(seconds / 60) % 60)
 end
+-- The server limits how often a full snapshot can be requested. Observed live: requests were ignored up
+-- to 14 min 53 s after the last accepted one and accepted again by 18 min 30 s, consistent with 15 min.
+-- This is an estimate for display only; MEGold still sends the request and waits for the server.
+M.SCAN_COOLDOWN = 15 * 60
+-- Seconds until the estimated cooldown ends (0 when over), or nil when no scan time is recorded.
+function M:ScanCooldownRemaining()
+    local last = self.db and self.db.lastSnapshotAt
+    if not M.Integer(last) then return nil end
+    return math.max(0, last + M.SCAN_COOLDOWN - GetServerTime())
+end
+function M:ScanCooldownText()
+    local remaining = self:ScanCooldownRemaining()
+    if not remaining then return "" end
+    if remaining > 0 then return " | Next scan in about " .. M.AgeText(remaining) end
+    return " | |cff55ff55Scan ready|r"
+end
+-- Gold evidence for an unconfirmed purchase. Spending exactly the cost since the request is consistent
+-- with a completed purchase; it is evidence only, since other transactions also move gold.
+function M:PurchaseGoldChange(entry)
+    if type(entry) ~= "table" or not M.Integer(entry.moneyBefore) then return nil end
+    return GetMoney() - entry.moneyBefore
+end
+function M:PurchaseEvidenceText(entry)
+    local change = self:PurchaseGoldChange(entry)
+    if not change then return nil end
+    if change == -entry.cost then
+        return "Gold evidence: your gold fell by exactly the cost since the request (consistent with a completed purchase)."
+    elseif change == 0 then
+        return "Gold evidence: your gold has not changed since the request (consistent with no purchase)."
+    end
+    return string.format("Gold evidence: your gold changed by %s%s since the request (expected -%s); other transactions may explain this.",
+        change < 0 and "-" or "+", M.Money(math.abs(change)), M.Money(entry.cost))
+end
 -- Seconds since the displayed deals were captured, or nil without a real snapshot. Counted from the
 -- scan request, so a slow server response makes the age look older, never fresher.
 function M:SnapshotAge()

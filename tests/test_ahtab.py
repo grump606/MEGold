@@ -116,7 +116,12 @@ assert(#M.tabPanel.rows == 10)
 M.snapshotAt = GetTime() - 45
 M.tabPanel.scripts.OnUpdate(M.tabPanel, 1.5)
 assert(M.tabPanel.status.text:find("Snapshot 45s old", 1, true) and M.tabPanel.status.text:find("tab status", 1, true))
+-- The cooldown estimate also ticks on the panel (GetServerTime() is 100 in this fixture).
 M.snapshotAt = nil
+M.db.lastSnapshotAt = 0
+M.tabPanel.scripts.OnUpdate(M.tabPanel, 1.5)
+assert(M.tabPanel.status.text:find("Next scan in about 13m 20s", 1, true))
+M.db.lastSnapshotAt = nil
 
 -- 5. With the AH closed Show() uses the standalone window again.
 fireEvent("AUCTION_HOUSE_CLOSED")

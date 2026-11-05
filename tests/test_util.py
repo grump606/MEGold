@@ -8,6 +8,7 @@ from lupa.lua51 import LuaRuntime
 lua = LuaRuntime(unpack_returned_tuples=True)
 lua.execute('''
 function GetServerTime() return 100 * 86400 end
+function GetMoney() return 5000 end
 M = {}
 M.defaults = { batchSize = 10, minProfit = 1, minReturn = 0, maxCost = 100000, budget = 1000000, reserve = 0, prefetch = 1 }
 ''')
@@ -34,6 +35,25 @@ assert(id("no link here") == nil and id("") == nil)
 assert(M.AgeText(0) == "0s" and M.AgeText(45.9) == "45s" and M.AgeText(60) == "1m 00s")
 assert(M.AgeText(185) == "3m 05s" and M.AgeText(3599) == "59m 59s" and M.AgeText(3720) == "1h 02m")
 assert(M.AgeText(-5) == "0s" and M.AgeText(nil) == "0s")
+
+-- Scan cooldown estimate (display only; never blocks a scan).
+local clock = GetServerTime()
+M.db = nil
+assert(M:ScanCooldownRemaining() == nil and M:ScanCooldownText() == "")
+M.db = { lastSnapshotAt = clock - 100 }
+assert(M:ScanCooldownRemaining() == 800 and M:ScanCooldownText():find("Next scan in about 13m 20s", 1, true))
+M.db.lastSnapshotAt = clock - 900
+assert(M:ScanCooldownRemaining() == 0 and M:ScanCooldownText():find("Scan ready", 1, true))
+M.db.lastSnapshotAt = "bad"; assert(M:ScanCooldownRemaining() == nil and M:ScanCooldownText() == "")
+M.db = nil
+
+-- Gold evidence for an unconfirmed purchase (GetMoney() is 5000 here).
+local paid = { cost = 400, moneyBefore = 5400 }
+assert(M:PurchaseGoldChange(paid) == -400 and M:PurchaseEvidenceText(paid):find("fell by exactly", 1, true))
+assert(M:PurchaseEvidenceText({ cost = 400, moneyBefore = 5000 }):find("has not changed", 1, true))
+assert(M:PurchaseEvidenceText({ cost = 400, moneyBefore = 5300 }):find("changed by -", 1, true))
+assert(M:PurchaseEvidenceText({ cost = 400, moneyBefore = 4000 }):find("changed by +", 1, true))
+assert(M:PurchaseEvidenceText({ cost = 400 }) == nil and M:PurchaseGoldChange(nil) == nil)
 
 -- One schema: Settings validation and Storage validation use identical bounds.
 assert(type(M.SettingsSchema) == "table" and #M.SettingsSchema == 7)

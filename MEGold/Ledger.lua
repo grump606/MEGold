@@ -6,7 +6,7 @@ function M:ResolvePending(entry, purchased)
     if purchased then
         self:FinishPurchase("manual review")
     else
-        entry.status, entry.reviewedAt = "not purchased", GetServerTime()
+        entry.status, entry.reviewedAt, entry.moneyBefore = "not purchased", GetServerTime(), nil
         self.account.reviews = self.account.reviews or {}
         self.account.reviews[#self.account.reviews + 1] = entry
         self.account.pending = nil
@@ -108,8 +108,9 @@ function M:RenderLedger()
         tally.flipQuantity, self.Money(tally.flipProceeds), self.Money(tally.cost), self.Money(tally.profit),
         tally.otherQuantity, self.Money(tally.otherProceeds), account.vendorUncertain and "\nUnreconciled vendor activity: totals exclude it; Sell Flips is locked." or ""))
     local entry = account.pending
-    f.pending:SetText(entry and string.format("UNRESOLVED: %s x%d | %s | %s", entry.name or tostring(entry.itemID),
-        entry.quantity, self.Money(entry.cost), self.queue.phase) or "No unresolved purchase.")
+    local evidence = entry and self:PurchaseEvidenceText(entry)
+    f.pending:SetText(entry and string.format("UNRESOLVED: %s x%d | %s | %s%s", entry.name or tostring(entry.itemID),
+        entry.quantity, self.Money(entry.cost), self.queue.phase, evidence and ("\n" .. evidence) or "") or "No unresolved purchase.")
     local canReview = entry and self.queue.phase == "uncertain" and not account.storageLocked and not self.db.storageLocked
     f.yes:SetEnabled(canReview and true or false); f.no:SetEnabled(canReview and true or false)
     f.reset:SetEnabled(not self:QueueBusy() and not entry and not account.storageLocked and not self.db.storageLocked)

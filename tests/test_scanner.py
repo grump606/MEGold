@@ -15,6 +15,7 @@ C_Timer = { After = function(delay, callback)
     timers[#timers + 1] = {at = now + delay, callback = callback, serial = serial}
 end }
 function GetTime() return now end
+function GetServerTime() return 1000000 + now end
 function advance(to)
     while true do
         table.sort(timers, function(a,b) return a.at == b.at and a.serial < b.serial or a.at < b.at end)
@@ -160,11 +161,16 @@ M:StartScan(); assert(M.scan.phase == "waiting" and M.status:find("2m 00s", 1, t
 advance(119); assert(M.scan and M.scan.phase == "waiting")
 advance(120); assert(not M.scan and M.status:find("No snapshot received after 2m 00s", 1, true))
 assert(M.snapshotAt == nil and M:SnapshotAgeText() == "")
+assert(M.db.lastSnapshotAt == nil, "a snapshot that never arrived must not start the cooldown estimate")
 
 -- A slow snapshot is still accepted; its age counts from the request, and colors follow its age.
 reset({{id = 1}}); cache[1] = 100
 M:StartScan(); advance(90); M:ReadSnapshot()
 assert(M.snapshotAt == 0 and M:SnapshotAgeSeconds() == 90)
+assert(M.db.lastSnapshotAt == 1000000, "the estimate counts from the request, not the arrival")
+assert(M:ScanCooldownRemaining() == 810 and M:ScanCooldownText():find("Next scan in about 13m 30s", 1, true))
+advance(900); assert(M:ScanCooldownRemaining() == 0 and M:ScanCooldownText():find("Scan ready", 1, true))
+advance(90)
 assert(M:SnapshotAgeText():find("ffd100", 1, true) and M:SnapshotAgeText():find("Snapshot 1m 30s old", 1, true))
 advance(100); assert(M:SnapshotAgeText():find("ffd100", 1, true))      -- advance() takes absolute time
 advance(300); assert(M:SnapshotAgeText():find("ff5555", 1, true) and M:SnapshotAgeText():find("5m 00s", 1, true))

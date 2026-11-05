@@ -6,6 +6,9 @@
 - Added modern-only UI/scan-start regression coverage; 19 isolated test scripts pass.
 
 ## Unreleased
+- Purchase window capture: for 20 s after each buy click or quote confirmation, MEGold logs the relevant client events (name and simple arguments, at most 60) so this client's real purchase-confirmation events can be identified. Bounded, silent when diagnostics are paused.
+- Gold evidence: the gold held at the request is saved with the pending purchase. Transactions shows whether your gold fell by exactly the cost, did not change, or changed by something else, and an unconfirmed purchase logs `goldChange`. Evidence only; you still confirm or reject it.
+- Scan cooldown estimate: the status line shows "Next scan in about Xm Ys" (15 min, from the last accepted snapshot; saved across reloads) and "Scan ready" afterwards. Observed live: requests were ignored up to 14 min 53 s and accepted again by 18 min 30 s. It is display-only and never blocks a scan.
 - Deal list now uses aligned columns (Item, Qty, Cost, Vendor, Profit, Return) with a matching header; numbers are right-aligned and long names are cut instead of wrapping.
 - A failed item search now logs a `search-miss` entry (results returned, why each was rejected, sample item identities, search-key level/suffix) to diagnose lots that are listed but not found. Read-only.
 - Snapshot wait raised from 30 s to 2 minutes, since the real server cooldown and response time are unknown. The status line states the wait, and the timeout message no longer assumes a cooldown.

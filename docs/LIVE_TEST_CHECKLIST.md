@@ -33,6 +33,11 @@ the report if any step fails. Stop a test on a Lua error or unexplained financia
 Live checks are pending until the client is accessible; automated test results do not
 mark these steps complete.
 
+## Purchase confirmation evidence
+- Buy one cheap lot. In /meg logs find "Purchase event capture started" and the capture-event entries that follow; note which event names appear (and any CHAT_MSG_SYSTEM text) and whether "Purchase event capture ended" shows the expected moneyChange.
+- If the purchase is left unconfirmed, open Transactions: the Gold evidence line should match what actually happened to your gold. Resolve with Verified purchased / not purchased.
+- After a scan the status line shows "Next scan in about Xm Ys"; it keeps counting down after a reload and shows "Scan ready" when it reaches zero.
+
 ## Snapshot age and pre-fetch
 - After a scan the status line shows "Snapshot Ns old" and it counts up every second (green, then yellow, then red).
 - Scan again inside the cooldown: MEGold waits up to 2 minutes before reporting no snapshot. Note how long real cooldown responses take.

@@ -70,7 +70,9 @@ function M:BuildPanel(frame, top)
         elapsed = elapsed + (seconds or 0)
         if elapsed < 1 then return end
         elapsed = 0
-        if M.snapshotAt and M.db and M.account then frame.status:SetText(statusLine(M)) end
+        if M.db and M.account and (M.snapshotAt or (M:ScanCooldownRemaining() or 0) > 0) then
+            frame.status:SetText(statusLine(M))
+        end
     end)
     frame.footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     frame.footer:SetPoint("BOTTOMLEFT", 16, 12)
@@ -122,6 +124,7 @@ statusLine = function(self)
     local pages = math.max(1, math.ceil(#self.results / size))
     self.page = math.min(self.page or 1, pages)
     return self.status .. " | Batch " .. self.page .. "/" .. pages .. self:SnapshotAgeText()
+        .. (self.scan and "" or self:ScanCooldownText())
 end
 local function renderPanel(self, panel)
     local size = math.max(1, math.min(10, self.db.settings.batchSize))

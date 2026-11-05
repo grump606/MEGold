@@ -265,16 +265,19 @@ function M:BuyNext()
     q.prefetch = nil -- the batch is now committed to a real purchase
     local entry = {}
     for k, v in pairs(deal) do entry[k] = v end
-    entry.status, entry.createdAt = "pending", GetServerTime()
+    entry.status, entry.createdAt, entry.moneyBefore = "pending", GetServerTime(), GetMoney()
     self.account.pending = entry
     q.phase = "purchasing"
     self:QueueMessage("Waiting for purchase confirmation…")
     self:LogState("purchase-intent", "Individual auction buyout", {itemID = deal.itemID, auctionID = deal.auctionID, quantity = deal.quantity, cost = deal.cost, snapshotAge = self:SnapshotAgeSeconds()})
+    if self.BeginPurchaseCapture then self:BeginPurchaseCapture("item-buyout", entry.moneyBefore) end
     local ok, err = pcall(AH.PlaceBid, deal.auctionID, deal.cost)
     if not ok then self:LogState("api-error", tostring(err), {operation = "PlaceBid"}) end
     if not ok then q.phase = "uncertain"; return self:QueueMessage("Purchase call failed. Buying locked until reconciled.") end
     C_Timer.After(15, function()
         if self.account.pending == entry then
+            self:LogState("purchase-unconfirmed", "No confirmation event", { itemID = entry.itemID, cost = entry.cost,
+                moneyBefore = entry.moneyBefore, goldChange = self:PurchaseGoldChange(entry) })
             q.phase = "uncertain"; self:QueueMessage("Purchase unconfirmed. Buying locked; inspect mail before reconciliation.")
         end
     end)
@@ -288,7 +291,7 @@ function M:FinishPurchase(source)
     local entry = self.account.pending
     if not entry then return end
     entry.status, entry.confirmedAt = "purchased", GetServerTime()
-    entry.confirmation = source
+    entry.confirmation, entry.moneyBefore = source, nil
     self:LogState("purchase-confirmed", source, {itemID = entry.itemID, auctionID = entry.auctionID, quantity = entry.quantity, cost = entry.cost})
     self.account.purchases[#self.account.purchases + 1] = entry
     if entry.auctionID then self.account.bought[entry.auctionID] = GetServerTime() end

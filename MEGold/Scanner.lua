@@ -56,7 +56,8 @@ function M:StartScan()
     self.generation = (self.generation or 0) + 1
     self.results, self.candidates, self.resultsDirty, self.snapshotAt = {}, {}, false, nil
     local scan = { phase = "waiting", pendingByItem = {}, failedItems = {}, pendingCount = 0,
-        failedRows = 0, invalidRows = 0, checked = 0, total = 0, requestedAt = GetTime() }
+        failedRows = 0, invalidRows = 0, checked = 0, total = 0, requestedAt = GetTime(),
+        requestedServerAt = GetServerTime() }
     self.scan = scan
     self:SetStatus("Requesting auction snapshot. Waiting up to " .. M.AgeText(SNAPSHOT_TIMEOUT) .. "; server cooldowns may delay this request.")
     local generation = self.generation
@@ -220,6 +221,8 @@ function M:ReadSnapshot()
     end
     scan.phase, scan.total = "processing", total
     self.snapshotAt = scan.requestedAt
+    -- Saved so the cooldown estimate survives reloads; counted from the request, like the snapshot age.
+    if self.db then self.db.lastSnapshotAt = scan.requestedServerAt end
     local index = 0
     local function chunk()
         if not current(self, scan, generation) then return end

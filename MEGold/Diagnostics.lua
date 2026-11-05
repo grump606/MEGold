@@ -128,4 +128,42 @@ events:SetScript("OnEvent", function(_, event, a, b)
     elseif event == "AUCTION_HOUSE_SHOW_ERROR" then fields.errorCode = a end
     M:LogState("event", event, fields)
 end)
+-- Purchase window: for a short time after a purchase request, record the relevant client events (name and
+-- simple arguments) so this client's real confirmation events can be identified. Bounded in time and count.
+local CAPTURE_SECONDS, CAPTURE_LIMIT = 20, 60
+local CAPTURE_PREFIXES = { "AUCTION", "COMMODITY", "ITEM_", "BID", "PURCHASE", "MAIL", "PLAYER_MONEY",
+    "CHAT_MSG_SYSTEM", "UI_ERROR", "UI_INFO", "BAG_UPDATE_DELAYED", "OWNED", "ERR_" }
+local capture = CreateFrame("Frame")
+M.captureFrame = capture
+capture:SetScript("OnEvent", function(frame, event, ...)
+    if not frame.token or frame.count >= CAPTURE_LIMIT then return end
+    local relevant = false
+    for _, prefix in ipairs(CAPTURE_PREFIXES) do
+        if event:sub(1, #prefix) == prefix then relevant = true; break end
+    end
+    if not relevant then return end
+    frame.count = frame.count + 1
+    local fields = { elapsed = tonumber(string.format("%.1f", GetTime() - frame.started)) }
+    for i = 1, math.min(select("#", ...), 4) do
+        local value = select(i, ...)
+        fields["arg" .. i] = type(value) == "table" and "table" or value
+    end
+    M:LogState("capture-event", event, fields)
+end)
+function M:BeginPurchaseCapture(label, moneyBefore)
+    local log = self.diagnostics
+    if not log or not log.enabled or type(capture.RegisterAllEvents) ~= "function" then return end
+    local token = {}
+    capture.token, capture.count, capture.started = token, 0, GetTime()
+    capture:RegisterAllEvents()
+    self:LogState("capture", "Purchase event capture started", { label = label, money = GetMoney() })
+    C_Timer.After(CAPTURE_SECONDS, function()
+        if capture.token ~= token then return end
+        capture:UnregisterAllEvents()
+        capture.token = nil
+        local fields = { label = label, events = capture.count, money = GetMoney() }
+        if M.Integer(moneyBefore) then fields.moneyChange = GetMoney() - moneyBefore end
+        M:LogState("capture", "Purchase event capture ended", fields)
+    end)
+end
 M.diagnosticEvents = events
