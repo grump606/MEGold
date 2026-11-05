@@ -21,21 +21,50 @@ function M:InitializeQueue()
     if self.account.storageLocked then self.queue.message = "Transactions locked: " .. self.account.storageLocked end
     return true
 end
+-- A pre-fetched batch only searches; nothing is quoted, bought or reserved until the player clicks buy,
+-- so it never blocks a new scan, demo or manual batch.
 function M:QueueBusy()
-    return self.queue and self.queue.phase ~= "idle"
+    local q = self.queue
+    return q and q.phase ~= "idle" and not q.prefetch
+end
+-- Drops a pre-fetched batch that has not been committed to a purchase. In-flight search timers carry
+-- the old token, so clearing it makes them no-ops.
+function M:DiscardPrefetch()
+    local q = self.queue
+    if not q or not q.prefetch then return end
+    q.prefetch, q.token, q.ready, q.key, q.commodity, q.pagePending, q.pageSent = nil, nil, nil, nil, nil, nil, nil
+    q.rows, q.index, q.phase, q.message = {}, 1, "idle", nil
+end
+-- Right after a scan completes, search the best real deals so the first purchase is ready when the
+-- player looks at the list. Controlled by the prefetch setting; failures stay silent.
+function M:Prefetch()
+    local q = self.queue
+    if not q or not self.account or (self.db.settings.prefetch or 0) ~= 1 then return end
+    if q.phase ~= "idle" or self.account.pending or not self.ahOpen then return end
+    if not (self:CanTransact("itemBuy") or self:CanTransact("commodityBuy")) then return end
+    self:BuildBatch(true)
 end
 function M:QueueMessage(text)
     self.queue.message = text
     self:LogState("queue", text)
     self:Refresh()
 end
-function M:BuildBatch()
+function M:BuildBatch(prefetch)
     local item, reason = self:CanTransact("itemBuy")
     local commodity = self:CanTransact("commodityBuy")
-    if not item and not commodity then return self:SetStatus(reason) end
+    if not item and not commodity then
+        if not prefetch then self:SetStatus(reason) end
+        return
+    end
     if self:QueueBusy() then return end
-    if not self.ahOpen then return self:SetStatus("Open the auction house first.") end
-    self:StopScan()
+    if not self.ahOpen then
+        if not prefetch then self:SetStatus("Open the auction house first.") end
+        return
+    end
+    if not prefetch then
+        self:DiscardPrefetch()
+        self:StopScan()
+    end
     -- Buy the best deals first; the list may still hold unsorted rows from a scan in progress.
     self:SortResults()
     local q = self.queue
@@ -48,7 +77,11 @@ function M:BuildBatch()
             if #q.rows >= self.db.settings.batchSize then break end
         end
     end
-    if #q.rows == 0 then return self:QueueMessage("No real deals meet the remaining budget.") end
+    if #q.rows == 0 then
+        if prefetch then return end
+        return self:QueueMessage("No real deals meet the remaining budget.")
+    end
+    q.prefetch = prefetch and true or nil
     q.phase = "next"
     self:PrepareNext()
 end
@@ -58,8 +91,8 @@ function M:PrepareNext()
     self:CancelQuote()
     q.ready, q.key, q.commodity, q.pagePending = nil, nil, nil, nil
     local row = q.rows[q.index]
-    if not row then q.phase = "idle"; return self:QueueMessage("Batch complete. Scan again or prepare another batch.") end
-    if not self.ahOpen then q.phase = "idle"; return end
+    if not row then q.phase, q.prefetch = "idle", nil; return self:QueueMessage("Batch complete. Scan again or prepare another batch.") end
+    if not self.ahOpen then q.phase, q.prefetch = "idle", nil; return end
     if type(AH.MakeItemKey) ~= "function" or type(AH.GetItemKeyInfo) ~= "function" then
         q.phase = "blocked"; return self:QueueMessage("Required auction APIs are unavailable.")
     end
@@ -156,8 +189,8 @@ function M:QueueResults(key)
         return self:QueueMessage("No matching profitable lot on this results page. Skip this deal.")
     end
     q.ready, q.phase, q.readyAt = best, "ready", GetTime()
-    self:QueueMessage(string.format("%d/%d: %s x%d — cost %s. Click Buy Next.", q.index, #q.rows,
-        best.name, best.quantity, self.Money(best.cost)))
+    self:QueueMessage(string.format("%d/%d: %s x%d — cost %s. Click Buy Next.%s", q.index, #q.rows,
+        best.name, best.quantity, self.Money(best.cost), q.prefetch and " (pre-fetched)" or ""))
 end
 function M:BuyNext()
     local q = self.queue
@@ -180,13 +213,14 @@ function M:BuyNext()
         q.phase = "blocked"; return self:QueueMessage("Deal no longer meets your filters or budget. Skip it.")
     end
     -- Save intent before sending. A timeout/reload must never silently retry a purchase.
+    q.prefetch = nil -- the batch is now committed to a real purchase
     local entry = {}
     for k, v in pairs(deal) do entry[k] = v end
     entry.status, entry.createdAt = "pending", GetServerTime()
     self.account.pending = entry
     q.phase = "purchasing"
     self:QueueMessage("Waiting for purchase confirmation…")
-    self:LogState("purchase-intent", "Individual auction buyout", {itemID = deal.itemID, auctionID = deal.auctionID, quantity = deal.quantity, cost = deal.cost})
+    self:LogState("purchase-intent", "Individual auction buyout", {itemID = deal.itemID, auctionID = deal.auctionID, quantity = deal.quantity, cost = deal.cost, snapshotAge = self:SnapshotAgeSeconds()})
     local ok, err = pcall(AH.PlaceBid, deal.auctionID, deal.cost)
     if not ok then self:LogState("api-error", tostring(err), {operation = "PlaceBid"}) end
     if not ok then q.phase = "uncertain"; return self:QueueMessage("Purchase call failed. Buying locked until reconciled.") end
@@ -224,7 +258,7 @@ end
 function M:CloseQueue()
     local q = self.queue
     self:CancelQuote()
-    q.token, q.ready = nil, nil
+    q.token, q.ready, q.prefetch = nil, nil, nil
     q.phase = self.account.pending and "uncertain" or "idle"
     self:QueueMessage(self.account.pending and "AH closed with an unresolved purchase. Buying locked." or "Buying batch cancelled because the AH closed.")
 end

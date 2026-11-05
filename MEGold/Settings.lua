@@ -63,7 +63,7 @@ function M:ShowSettings()
     if not self.settingsWindow then
         local f = CreateFrame("Frame", "MEGoldSettings", UIParent, "BasicFrameTemplateWithInset")
         self.settingsWindow = f
-        f:SetSize(460, 570); f:SetPoint("CENTER"); f:SetFrameStrata("DIALOG")
+        f:SetSize(460, 607); f:SetPoint("CENTER"); f:SetFrameStrata("DIALOG")
         f.TitleText:SetText("MEGold — Buying filters")
         f.inputs, f.rarities, f.itemLists = {}, {}, {}
         for i, field in ipairs(fields) do
@@ -78,22 +78,22 @@ function M:ShowSettings()
         local names = { "Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Artifact", "Heirloom" }
         for quality = 0, 7 do
             local check = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-            check:SetPoint("TOPLEFT", 15 + (quality % 4) * 108, -267 - math.floor(quality / 4) * 35)
+            check:SetPoint("TOPLEFT", 15 + (quality % 4) * 108, -304 - math.floor(quality / 4) * 35)
             local label = check:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             label:SetPoint("LEFT", check, "RIGHT", 0, 0); label:SetText(names[quality + 1])
             f.rarities[quality] = check
         end
         for i, field in ipairs({ { "ignored", "Ignore buying (item IDs)" }, { "neverSell", "Never sell (item IDs)" } }) do
             local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            label:SetPoint("TOPLEFT", 18, -345 - (i - 1) * 57); label:SetText(field[2])
+            label:SetPoint("TOPLEFT", 18, -382 - (i - 1) * 57); label:SetText(field[2])
             local input = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-            input:SetSize(410, 25); input:SetPoint("TOPLEFT", 23, -365 - (i - 1) * 57)
+            input:SetSize(410, 25); input:SetPoint("TOPLEFT", 23, -402 - (i - 1) * 57)
             input:SetAutoFocus(false); input:SetMaxLetters(4096)
             input:SetScript("OnEscapePressed", function(box) box:ClearFocus() end)
             f.itemLists[field[1]] = input
         end
         f.error = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        f.error:SetPoint("TOPLEFT", 18, -460); f.error:SetWidth(420); f.error:SetJustifyH("LEFT")
+        f.error:SetPoint("TOPLEFT", 18, -497); f.error:SetWidth(420); f.error:SetJustifyH("LEFT")
         local save = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
         save:SetSize(140, 28); save:SetPoint("BOTTOM", 0, 20); save:SetText("Save filters")
         save:SetScript("OnClick", function()

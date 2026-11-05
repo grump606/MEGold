@@ -14,6 +14,7 @@ C_Timer = { After = function(delay, callback)
     serial = serial + 1
     timers[#timers + 1] = {at = now + delay, callback = callback, serial = serial}
 end }
+function GetTime() return now end
 function advance(to)
     while true do
         table.sort(timers, function(a,b) return a.at == b.at and a.serial < b.serial or a.at < b.at end)
@@ -152,5 +153,37 @@ C_AuctionHouse.GetReplicateItemLink = function() return "|Hitem:2:0|h[Other]|h" 
 M:StartScan(); M:ReadSnapshot()
 assert(not M.scan and #M.results == 0 and M.lastScan.invalid == 1)
 C_AuctionHouse.GetReplicateItemLink = originalLink
+
+-- The snapshot wait is generous: still waiting at 119 s, then an accurate give-up message at 120 s.
+reset({{id = 1}})
+M:StartScan(); assert(M.scan.phase == "waiting" and M.status:find("2m 00s", 1, true))
+advance(119); assert(M.scan and M.scan.phase == "waiting")
+advance(120); assert(not M.scan and M.status:find("No snapshot received after 2m 00s", 1, true))
+assert(M.snapshotAt == nil and M:SnapshotAgeText() == "")
+
+-- A slow snapshot is still accepted; its age counts from the request, and colors follow its age.
+reset({{id = 1}}); cache[1] = 100
+M:StartScan(); advance(90); M:ReadSnapshot()
+assert(M.snapshotAt == 0 and M:SnapshotAgeSeconds() == 90)
+assert(M:SnapshotAgeText():find("ffd100", 1, true) and M:SnapshotAgeText():find("Snapshot 1m 30s old", 1, true))
+advance(100); assert(M:SnapshotAgeText():find("ffd100", 1, true))      -- advance() takes absolute time
+advance(300); assert(M:SnapshotAgeText():find("ff5555", 1, true) and M:SnapshotAgeText():find("5m 00s", 1, true))
+assert(M:SnapshotAgeSeconds() == 300)
+advance(20)
+M.snapshotAt = 10; assert(M:SnapshotAgeText():find("55ff55", 1, true) and M:SnapshotAgeText():find("10s", 1, true))
+M:StartScan(); assert(M.snapshotAt == nil)   -- a new scan clears the old age
+M:Demo(); assert(M.snapshotAt == nil)
+
+-- Completion triggers the (read-only) pre-fetch exactly once; starting a scan discards a pending one.
+local prefetches, discards = 0, 0
+function M:Prefetch() prefetches = prefetches + 1 end
+function M:DiscardPrefetch() discards = discards + 1 end
+reset({{id = 1}}); cache[1] = 100
+M:StartScan(); assert(discards == 1 and prefetches == 0)
+M:ReadSnapshot(); assert(not M.scan and prefetches == 1)
+reset({{id = 1}})      -- item data still missing: no pre-fetch until every row is resolved
+M:StartScan(); M:ReadSnapshot(); assert(M.scan and prefetches == 1)
+cache[1] = 100; M:RetryPending(1, true); assert(not M.scan and prefetches == 2)
+M.Prefetch, M.DiscardPrefetch = nil, nil
 ''')
 print("PASS: indexed/deduplicated scanner requests, bounded retries, missing-data expiry, cancellation and invalid data")

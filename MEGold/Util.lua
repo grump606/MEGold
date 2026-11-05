@@ -45,4 +45,29 @@ M.SettingsSchema = {
     { "budget", "Session budget (copper)", 0, 100000000000 },
     { "reserve", "Gold reserve (copper)", 0, 100000000000 },
     { "batchSize", "Deals per batch (1–10)", 1, 10 },
+    { "prefetch", "Pre-fetch deals (1 on, 0 off)", 0, 1 },
 }
+-- Compact elapsed-time text: 45s, 3m 05s, 1h 02m.
+function M.AgeText(seconds)
+    seconds = math.max(0, math.floor(seconds or 0))
+    if seconds < 60 then return seconds .. "s" end
+    if seconds < 3600 then return string.format("%dm %02ds", math.floor(seconds / 60), seconds % 60) end
+    return string.format("%dh %02dm", math.floor(seconds / 3600), math.floor(seconds / 60) % 60)
+end
+-- Seconds since the displayed deals were captured, or nil without a real snapshot. Counted from the
+-- scan request, so a slow server response makes the age look older, never fresher.
+function M:SnapshotAge()
+    if not self.snapshotAt then return nil end
+    return math.max(0, GetTime() - self.snapshotAt)
+end
+function M:SnapshotAgeSeconds()
+    local age = self:SnapshotAge()
+    return age and math.floor(age) or nil
+end
+-- Colored "Snapshot 12s old" text (green under 30 s, yellow under 2 min, red beyond), or "".
+function M:SnapshotAgeText()
+    local age = self:SnapshotAge()
+    if not age then return "" end
+    local color = age < 30 and "55ff55" or (age < 120 and "ffd100" or "ff5555")
+    return " | |cff" .. color .. "Snapshot " .. M.AgeText(age) .. " old|r"
+end

@@ -1,5 +1,8 @@
 local _, M = ...
 local CHUNK_SIZE, MAX_ATTEMPTS, REQUEST_TIMEOUT, RETRY_DELAY = 100, 3, 5, 1
+-- How long to wait for the server to deliver the auction snapshot. The real cooldown and server speed
+-- are unknown, so wait generously before assuming a cooldown.
+local SNAPSHOT_TIMEOUT = 120
 -- Time-budgeted snapshot reads: ~8ms of work per frame, never fewer than MIN_ROWS rows so a
 -- slow client still progresses. Without debugprofilestop the loop uses fixed CHUNK_SIZE chunks.
 local FRAME_BUDGET_MS, MIN_ROWS, STATUS_EVERY = 8, 25, 20
@@ -39,6 +42,8 @@ end
 function M:StartScan()
     local supported, reason = self:Supports("scan")
     if not supported then return self:SetStatus(reason) end
+    -- A pre-fetched batch is only read-only searching; a new scan replaces it.
+    if self.DiscardPrefetch then self:DiscardPrefetch() end
     if self:QueueBusy() then return self:SetStatus("Finish or skip the current buying batch first.") end
     if not self.ahOpen then return self:SetStatus("Open the auction house first.") end
     if self.scan then return end
@@ -49,18 +54,18 @@ function M:StartScan()
         return self:SetStatus("This client does not expose the required scan and item-data APIs.")
     end
     self.generation = (self.generation or 0) + 1
-    self.results, self.candidates, self.resultsDirty = {}, {}, false
+    self.results, self.candidates, self.resultsDirty, self.snapshotAt = {}, {}, false, nil
     local scan = { phase = "waiting", pendingByItem = {}, failedItems = {}, pendingCount = 0,
-        failedRows = 0, invalidRows = 0, checked = 0, total = 0 }
+        failedRows = 0, invalidRows = 0, checked = 0, total = 0, requestedAt = GetTime() }
     self.scan = scan
-    self:SetStatus("Requesting auction snapshot. Server cooldowns may delay this request.")
+    self:SetStatus("Requesting auction snapshot. Waiting up to " .. M.AgeText(SNAPSHOT_TIMEOUT) .. "; server cooldowns may delay this request.")
     local generation = self.generation
     local ok, err = pcall(api.ReplicateItems)
     if not ok then self:StopScan(); return self:SetStatus(tostring(err)) end
-    C_Timer.After(30, function()
+    C_Timer.After(SNAPSHOT_TIMEOUT, function()
         if current(self, scan, generation) and scan.phase == "waiting" then
             self:StopScan()
-            self:SetStatus("No snapshot received. The server may be on scan cooldown; try later.")
+            self:SetStatus("No snapshot received after " .. M.AgeText(SNAPSHOT_TIMEOUT) .. ". The server may be on scan cooldown or very slow; try later.")
         end
     end)
 end
@@ -201,6 +206,8 @@ function M:ScanProgress()
         if pending == 0 then
             self.lastScan = { total = scan.total, deals = #self.results, unavailable = scan.failedRows, invalid = scan.invalidRows }
             self.scan = nil
+            -- Search the best deals now, while the player reads the list (read-only; see Queue.lua).
+            if self.Prefetch then self:Prefetch() end
         end
     end
 end
@@ -212,6 +219,7 @@ function M:ReadSnapshot()
         self:StopScan(); return self:SetStatus("Auction snapshot returned an invalid listing count.")
     end
     scan.phase, scan.total = "processing", total
+    self.snapshotAt = scan.requestedAt
     local index = 0
     local function chunk()
         if not current(self, scan, generation) then return end
@@ -242,6 +250,7 @@ function M:ReadSnapshot()
     chunk()
 end
 function M:Demo()
+    if self.DiscardPrefetch then self:DiscardPrefetch() end
     if self:QueueBusy() then return self:SetStatus("Finish the buying batch before opening demo data.") end
     self:StopScan()
     self.results = {}
@@ -256,6 +265,7 @@ function M:Demo()
             self.results[#self.results + 1] = row
         end
     end
+    self.snapshotAt = nil
     self:SortResults()
     self:SetStatus("DEMO DATA — no auctions or purchases. Use Scan for real results.")
     self:Show()

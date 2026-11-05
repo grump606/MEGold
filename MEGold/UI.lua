@@ -1,5 +1,6 @@
 local _, M = ...
 local money = M.Money
+local statusLine -- defined below; BuildPanel's ticker needs it
 -- Builds the deal list and buying controls into `frame`. The same layout serves the standalone
 -- window and the Auction House tab, so it anchors to the frame edges instead of fixed widths.
 -- `top` reserves room for a title bar when the parent draws one.
@@ -41,6 +42,14 @@ function M:BuildPanel(frame, top)
         row:SetScript("OnLeave", function() GameTooltip:Hide() end)
         frame.rows[i] = row
     end
+    -- The snapshot age ticks once a second; only the status line is redrawn (hidden frames get no OnUpdate).
+    local elapsed = 0
+    frame:SetScript("OnUpdate", function(_, seconds)
+        elapsed = elapsed + (seconds or 0)
+        if elapsed < 1 then return end
+        elapsed = 0
+        if M.snapshotAt and M.db and M.account then frame.status:SetText(statusLine(M)) end
+    end)
     frame.footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     frame.footer:SetPoint("BOTTOMLEFT", 16, 12)
     frame.footer:SetText("Buy Next spends real gold. Open a vendor to review and sell collected flips.")
@@ -86,11 +95,15 @@ function M:Show()
     if self.ahOpen and self:SelectTab() then return self:Refresh() end
     self:ShowWindow()
 end
-local function renderPanel(self, panel)
+statusLine = function(self)
     local size = math.max(1, math.min(10, self.db.settings.batchSize))
     local pages = math.max(1, math.ceil(#self.results / size))
     self.page = math.min(self.page or 1, pages)
-    panel.status:SetText(self.status .. " | Batch " .. self.page .. "/" .. pages)
+    return self.status .. " | Batch " .. self.page .. "/" .. pages .. self:SnapshotAgeText()
+end
+local function renderPanel(self, panel)
+    local size = math.max(1, math.min(10, self.db.settings.batchSize))
+    panel.status:SetText(statusLine(self))
     local q = self.queue
     local tally = self:GetProfitTally()
     panel.footer:SetText("Realized flip profit: " .. self.Money(tally.profit) .. " | Other vendor proceeds: " .. self.Money(tally.otherProceeds))

@@ -1,6 +1,6 @@
 local _, M = ...
 M.defaults = { batchSize = 10, minProfit = 1, minReturn = 0, maxCost = 100000,
-    budget = 1000000, reserve = 0, ignored = {}, neverSell = {}, buyRarities = {}, sellRarities = { [0] = true, [1] = true } }
+    budget = 1000000, reserve = 0, ignored = {}, neverSell = {}, buyRarities = {}, prefetch = 1, sellRarities = { [0] = true, [1] = true } }
 M.results = {}
 M.status = "Open the auction house to scan."
 M.events = CreateFrame("Frame")

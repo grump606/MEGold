@@ -33,6 +33,13 @@ the report if any step fails. Stop a test on a Lua error or unexplained financia
 Live checks are pending until the client is accessible; automated test results do not
 mark these steps complete.
 
+## Snapshot age and pre-fetch
+- After a scan the status line shows "Snapshot Ns old" and it counts up every second (green, then yellow, then red).
+- Scan again inside the cooldown: MEGold waits up to 2 minutes before reporting no snapshot. Note how long real cooldown responses take.
+- When a scan finishes with deals and pre-fetch is on, the first deal shows "(pre-fetched)" and Buy Next / Get Quote works without pressing Prepare.
+- Press Scan again after a pre-fetch: it starts normally. Set "Pre-fetch deals" to 0 in Filters: no automatic searching after a scan.
+- In /meg logs, quote-request and purchase-intent entries include snapshotAge.
+
 ## Auction House tab
 - Open the AH: a MEGold tab appears beside the stock tabs and the default tab is unchanged.
 - Click the tab: the deal list, buttons and both status lines fit inside the AH window with no overlap or clipping.

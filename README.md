@@ -34,6 +34,10 @@ Opening the auction house adds a MEGold tab to its window (`/meg` selects it). W
 contacting the auction house. Open an auctioneer and press **Scan AH** for real data.
 Use **Stop** to cancel local processing. The server may impose a full-scan cooldown.
 Hover results for item tooltips; Previous/Next batch shows groups of ten.
+The status line shows how old the deals are. The server may take a while to answer a scan,
+so MEGold waits up to two minutes for the snapshot. When a scan finishes, the best deals are
+searched automatically (read-only, setting "Pre-fetch deals") so the first buy is ready; nothing is
+bought until you click.
 Press **Filters** to edit profit, return, purchase cap, budget, reserve, batch size,
 and buying rarities. Money fields use copper. Saved filters immediately recheck all
 loaded candidates, including previously hidden deals. Confirmed spending counts toward

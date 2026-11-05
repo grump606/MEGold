@@ -9,7 +9,7 @@ lua = LuaRuntime(unpack_returned_tuples=True)
 lua.execute('''
 function GetServerTime() return 100 * 86400 end
 M = {}
-M.defaults = { batchSize = 10, minProfit = 1, minReturn = 0, maxCost = 100000, budget = 1000000, reserve = 0 }
+M.defaults = { batchSize = 10, minProfit = 1, minReturn = 0, maxCost = 100000, budget = 1000000, reserve = 0, prefetch = 1 }
 ''')
 module = lua.globals().M
 for filename in ("Util.lua", "Storage.lua", "Settings.lua"):
@@ -30,8 +30,13 @@ assert(id("|Hitem:12:0:1|h[X]|h") == "item:12:0:1")
 assert(id(nil) == nil and id(5) == nil and id(false) == nil and id({}) == nil)
 assert(id("no link here") == nil and id("") == nil)
 
+-- Compact age text.
+assert(M.AgeText(0) == "0s" and M.AgeText(45.9) == "45s" and M.AgeText(60) == "1m 00s")
+assert(M.AgeText(185) == "3m 05s" and M.AgeText(3599) == "59m 59s" and M.AgeText(3720) == "1h 02m")
+assert(M.AgeText(-5) == "0s" and M.AgeText(nil) == "0s")
+
 -- One schema: Settings validation and Storage validation use identical bounds.
-assert(type(M.SettingsSchema) == "table" and #M.SettingsSchema == 6)
+assert(type(M.SettingsSchema) == "table" and #M.SettingsSchema == 7)
 for _, field in ipairs(M.SettingsSchema) do
     local key, label, lo, hi = field[1], field[2], field[3], field[4]
     assert(M.defaults[key] ~= nil and I(M.defaults[key], lo, hi), "default in bounds: " .. key)

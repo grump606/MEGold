@@ -38,7 +38,7 @@ function M:CommodityResults(itemID)
         q.phase = "blocked"; return self:QueueMessage("Commodity quantity or price no longer meets your limits. Skip this deal.")
     end
     q.ready, q.phase, q.readyAt = deal, "ready", GetTime()
-    self:QueueMessage(string.format("%s x%d — estimated %s. Click Get Quote, then confirm its price.", name, deal.quantity, self.Money(cost)))
+    self:QueueMessage(string.format("%s x%d — estimated %s. Click Get Quote, then confirm its price.%s", name, deal.quantity, self.Money(cost), q.prefetch and " (pre-fetched)" or ""))
 end
 function M:BuyCommodity()
     local q, deal = self.queue, self.queue.ready
@@ -46,7 +46,8 @@ function M:BuyCommodity()
         q.phase = "blocked"; return self:QueueMessage("Commodity no longer meets your budget or filters.")
     end
     q.phase, q.ownsQuote, q.ownCall = "quoting", true, true
-    self:LogState("quote-request", "Commodity quote", {itemID = deal.itemID, quantity = deal.quantity, cap = deal.maxCost})
+    q.prefetch = nil -- the batch is now committed to a real purchase
+    self:LogState("quote-request", "Commodity quote", {itemID = deal.itemID, quantity = deal.quantity, cap = deal.maxCost, snapshotAge = self:SnapshotAgeSeconds()})
     local ok, err = pcall(AH.StartCommoditiesPurchase, deal.itemID, deal.quantity)
     if not ok then self:LogState("api-error", tostring(err), {operation = "StartCommoditiesPurchase"}) end
     q.ownCall = nil
