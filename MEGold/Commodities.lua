@@ -38,7 +38,7 @@ function M:CommodityResults(itemID)
         q.phase = "blocked"; return self:QueueMessage("Commodity quantity or price no longer meets your limits. Skip this deal.")
     end
     q.ready, q.phase, q.readyAt = deal, "ready", GetTime()
-    self:QueueMessage(string.format("%s x%d — estimated %s. Click Get Quote, then confirm its price.", name, deal.quantity, GetCoinTextureString(cost)))
+    self:QueueMessage(string.format("%s x%d — estimated %s. Click Get Quote, then confirm its price.", name, deal.quantity, self.Money(cost)))
 end
 function M:BuyCommodity()
     local q, deal = self.queue, self.queue.ready
@@ -71,7 +71,7 @@ function M:CommodityQuote(unitPrice, totalPrice)
     end
     q.phase, q.readyAt = "quoted", GetTime()
     self:LogState("quote-accepted", "Firm quote meets limits", {itemID = deal.itemID, quantity = deal.quantity, cost = totalPrice})
-    self:QueueMessage(string.format("Firm quote: %s x%d for %s. Click Confirm Buy before it expires.", deal.name, deal.quantity, GetCoinTextureString(totalPrice)))
+    self:QueueMessage(string.format("Firm quote: %s x%d for %s. Click Confirm Buy before it expires.", deal.name, deal.quantity, self.Money(totalPrice)))
 end
 function M:ConfirmCommodity()
     local q = self.queue

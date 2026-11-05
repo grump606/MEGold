@@ -1,8 +1,5 @@
 local _, M = ...
 local integer = M.Integer
-function M.Money(amount)
-    return (amount < 0 and "-" or "") .. GetCoinTextureString(math.abs(amount))
-end
 function M:MarkCollected(purchase)
     if self.vendorRun or self.account.vendorUncertain or self.account.storageLocked or (self.db and self.db.storageLocked) then return false end
     if not self:Supports("inventory") then return false end

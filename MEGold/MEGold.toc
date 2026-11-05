@@ -2,8 +2,10 @@
 ## Title: MEGold
 ## Notes: Personal vendor-profit scanner
 ## Author: Chris
-## Version: 0.6.0
+## Version: 0.6.1
 ## SavedVariables: MEGoldDB
+Libs\LibStub\LibStub.lua
+Libs\LibAHTab\LibAHTab.lua
 Core.lua
 Util.lua
 Client.lua
@@ -22,4 +24,5 @@ Vendor.lua
 Inventory.lua
 VendorUI.lua
 UI.lua
+AHTab.lua
 DiagnosticsUI.lua

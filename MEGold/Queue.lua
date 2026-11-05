@@ -157,7 +157,7 @@ function M:QueueResults(key)
     end
     q.ready, q.phase, q.readyAt = best, "ready", GetTime()
     self:QueueMessage(string.format("%d/%d: %s x%d — cost %s. Click Buy Next.", q.index, #q.rows,
-        best.name, best.quantity, GetCoinTextureString(best.cost)))
+        best.name, best.quantity, self.Money(best.cost)))
 end
 function M:BuyNext()
     local q = self.queue

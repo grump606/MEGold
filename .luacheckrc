@@ -10,11 +10,15 @@ globals = {
     "StaticPopupDialogs",
 }
 
+exclude_files = { "MEGold/Libs/**" } -- vendored third-party libraries
+
 read_globals = {
+    -- Auction House UI and library loader
+    "AuctionHouseFrame", "LibStub",
     -- frames and UI
     "CreateFrame", "UIParent", "DEFAULT_CHAT_FRAME", "GameTooltip", "MerchantFrame",
     -- namespaced APIs
-    "C_AddOns", "C_AuctionHouse", "C_Container", "C_Item", "C_Timer",
+    "C_AddOns", "C_AuctionHouse", "C_Container", "C_CurrencyInfo", "C_Item", "C_Timer",
     -- legacy / misc APIs
     "GetAddOnMetadata", "GetBuildInfo", "GetBuybackItemInfo", "GetBuybackItemLink",
     "GetCoinTextureString", "GetContainerItemEquipmentSetInfo", "GetContainerItemInfo",

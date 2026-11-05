@@ -32,3 +32,10 @@ the report if any step fails. Stop a test on a Lua error or unexplained financia
 
 Live checks are pending until the client is accessible; automated test results do not
 mark these steps complete.
+
+## Auction House tab
+- Open the AH: a MEGold tab appears beside the stock tabs and the default tab is unchanged.
+- Click the tab: the deal list, buttons and both status lines fit inside the AH window with no overlap or clipping.
+- Switch between stock tabs and MEGold repeatedly, then open your bags and use an item: no taint/blocked-action errors.
+- Scan, prepare a batch, and buy from the tab; close the AH mid-batch and confirm the queue stops.
+- `/meg` with the AH closed opens the standalone window.

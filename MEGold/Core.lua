@@ -5,7 +5,7 @@ M.results = {}
 M.status = "Open the auction house to scan."
 M.events = CreateFrame("Frame")
 function M:Refresh()
-    if self.Render and self.window and self.window:IsShown() then self:Render() end
+    if self.Render and ((self.window and self.window:IsShown()) or (self.tabPanel and self.tabPanel:IsShown())) then self:Render() end
     if self.ledgerWindow and self.ledgerWindow:IsShown() then self:RenderLedger() end
     if self.vendorWindow and self.vendorWindow:IsShown() then self:RenderVendor() end
 end
@@ -43,7 +43,7 @@ M.events:SetScript("OnEvent", function(_, event, arg, success)
         M:MaintainHistory(M.account)
     elseif event == "AUCTION_HOUSE_SHOW" then
         M.ahOpen = true
-        if M:TryInitializeCharacter() then M:Show() end
+        if M:TryInitializeCharacter() then M:OnAuctionHouseShown() end
     elseif event == "AUCTION_HOUSE_CLOSED" then
         M.ahOpen = false
         M:StopScan()

@@ -30,7 +30,7 @@ clients or missing APIs disable the affected actions. Character state initialize
 after a stable player GUID is available.
 
 Deals are ranked by profit, then return, then lower cost, and batches buy the best first.
-Open `/meg` or `/megold`. `/meg demo` displays clearly labeled sample deals without
+Opening the auction house adds a MEGold tab to its window (`/meg` selects it). With the AH closed, or if the tab cannot be created, `/meg` or `/megold` opens a standalone window. `/meg demo` displays clearly labeled sample deals without
 contacting the auction house. Open an auctioneer and press **Scan AH** for real data.
 Use **Stop** to cancel local processing. The server may impose a full-scan cooldown.
 Hover results for item tooltips; Previous/Next batch shows groups of ten.

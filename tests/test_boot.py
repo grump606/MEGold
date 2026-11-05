@@ -58,7 +58,8 @@ function GetBuildInfo() return "1.60.1", "123456", "today", 16001 end
 function GetMoney() return 100000 end
 function GetTime() return 100 end
 function GetServerTime() return 100 end
-function GetCoinTextureString(value) return tostring(value) end
+C_CurrencyInfo = {GetCoinTextureString = function(value) return tostring(value) end}
+strmatch = string.match -- WoW alias used by the vendored LibStub
 timers = {}
 C_Timer = { After = function(seconds, fn) timers[#timers + 1] = fn end }
 M = {}
@@ -67,7 +68,7 @@ module = lua.globals().M
 toc = (ROOT / "MEGold" / "MEGold.toc").read_text(encoding="utf-8")
 for filename in toc.splitlines():
     if filename.endswith(".lua"):
-        lua.execute((ROOT / "MEGold" / filename).read_text(encoding="utf-8"), "MEGold", module)
+        lua.execute((ROOT / "MEGold" / filename.replace("\\", "/")).read_text(encoding="utf-8"), "MEGold", module)
 lua.execute('''
 M.events.scripts.OnEvent(M.events, "ADDON_LOADED", "MEGold")
 assert(not M.account and not M.queue)
@@ -126,5 +127,20 @@ assert(calls.main == 0 and calls.ledger == 0 and calls.vendor == 0)
 M.window:Show(); M:Refresh()
 assert(calls.main == 1 and calls.ledger == 0 and calls.vendor == 0)
 M.Render, M.RenderLedger, M.RenderVendor = main, ledger, vendor
+-- Reproduce the live failure: a visible window must not abort StartScan before
+-- ReplicateItems and its timeout are reached when only the modern formatter exists.
+assert(GetCoinTextureString == nil)
+local requested = 0
+M.Client.Auction.ReplicateItems = function() requested = requested + 1 end
+M.Client.Auction.GetNumReplicateItems = function() return 0 end
+M.Client.Auction.GetReplicateItemInfo = function() end
+M.Client.Auction.GetReplicateItemLink = function() end
+M.Client.Items.GetItemInfo = function() end
+M.Client.Items.RequestLoadItemDataByID = function() end
+M.Client.features.scan = true
+M.ahOpen = true
+M:StartScan()
+assert(requested == 1 and M.scan.phase == "waiting")
+assert(#timers > timerCount)
 ''')
 print("PASS: Lua 5.1 TOC/UI wiring with strict method whitelist, partial-API denial, diagnostics, and hidden-window refresh checks (not visual validation)")

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+- Fixed live Forever build 70790 UI failures caused by the removed global coin formatter.
+- All money displays use the modern currency API, with legacy and plain-text fallbacks.
+- Added modern-only UI/scan-start regression coverage; 19 isolated test scripts pass.
+
 ## Unreleased
 - Vendor sale recording is all-or-nothing: if a later buyback row cannot be allocated, earlier receipts from the same observation are reversed. Own-sale detection no longer errors when the run index is past the end.
 - Fixed inventory baseline race: bag decreases are reconciled before merchant, sale or collection baselines are adopted; verified sales only excuse the quantities they explain.

@@ -46,7 +46,7 @@ function M:ReviewPending(purchased)
     local entry = self.account.pending
     if not entry or self.queue.phase ~= "uncertain" then return end
     local text = string.format("%s x%d — %s\n\n%s\nCheck your mailbox, inventory and gold before confirming.",
-        entry.name or tostring(entry.itemID), entry.quantity, GetCoinTextureString(entry.cost),
+        entry.name or tostring(entry.itemID), entry.quantity, self.Money(entry.cost),
         purchased and "I verified this purchase completed. Record its cost and unlock buying." or
         "I verified this purchase did NOT complete. Unlock buying without recording a purchase.")
     StaticPopup_Show("MEGOLD_RECONCILE", text, nil, { entry = entry, purchased = purchased })
@@ -102,14 +102,14 @@ end
 function M:RenderLedger()
     local f, account = self.ledgerWindow, self.account
     if not f or not account then return end
-    f.summary:SetText(string.format("Confirmed purchases: %d | Current budget spent: %s", #account.purchases, GetCoinTextureString(account.spent)))
+    f.summary:SetText(string.format("Confirmed purchases: %d | Current budget spent: %s", #account.purchases, self.Money(account.spent)))
     local tally = self:GetProfitTally()
     f.tally:SetText(string.format("Flips sold: %d | Proceeds: %s | Purchase cost: %s | Realized profit: %s\nOther items sold: %d | Proceeds: %s%s",
         tally.flipQuantity, self.Money(tally.flipProceeds), self.Money(tally.cost), self.Money(tally.profit),
         tally.otherQuantity, self.Money(tally.otherProceeds), account.vendorUncertain and "\nUnreconciled vendor activity: totals exclude it; Sell Flips is locked." or ""))
     local entry = account.pending
     f.pending:SetText(entry and string.format("UNRESOLVED: %s x%d | %s | %s", entry.name or tostring(entry.itemID),
-        entry.quantity, GetCoinTextureString(entry.cost), self.queue.phase) or "No unresolved purchase.")
+        entry.quantity, self.Money(entry.cost), self.queue.phase) or "No unresolved purchase.")
     local canReview = entry and self.queue.phase == "uncertain" and not account.storageLocked and not self.db.storageLocked
     f.yes:SetEnabled(canReview and true or false); f.no:SetEnabled(canReview and true or false)
     f.reset:SetEnabled(not self:QueueBusy() and not entry and not account.storageLocked and not self.db.storageLocked)
@@ -120,7 +120,7 @@ function M:RenderLedger()
         local row = f.rows[i]
         row.purchase = purchase
         row.text:SetText(purchase and string.format("%s x%d | Collected %d | Sold %d | %s", purchase.name or tostring(purchase.itemID),
-            purchase.quantity, purchase.collected or 0, purchase.sold or 0, GetCoinTextureString(purchase.cost)) or "")
+            purchase.quantity, purchase.collected or 0, purchase.sold or 0, self.Money(purchase.cost)) or "")
         row.collect:SetShown(purchase ~= nil); row.hold:SetShown(purchase ~= nil)
         local inventoryOk = self:Supports("inventory")
         row.collect:SetEnabled(purchase and (purchase.collected or 0) < purchase.quantity and not self.vendorRun and not account.vendorUncertain
