@@ -219,8 +219,22 @@ function M:LogSearchMiss(wanted)
     end
     local okFull, full = false, nil
     if type(AH.HasFullItemSearchResults) == "function" then okFull, full = pcall(AH.HasFullItemSearchResults, key) end
+    -- What the search key resolves to versus what the snapshot listed: a key naming a different variant
+    -- (name, level) than the listing means the search is looking in the wrong place.
+    local keyName, keyCommodity = "unknown", "unknown"
+    if type(AH.GetItemKeyInfo) == "function" then
+        local okInfo, info = pcall(AH.GetItemKeyInfo, key)
+        if okInfo and type(info) == "table" then keyName, keyCommodity = tostring(info.itemName), tostring(info.isCommodity) end
+    end
+    local listedName, listedLevel, listedLevelType = "unknown", "unknown", "unknown"
+    if wanted.snapshotIndex and type(AH.GetReplicateItemInfo) == "function" then
+        local okRow, name, _, _, _, _, level, levelType = pcall(AH.GetReplicateItemInfo, wanted.snapshotIndex)
+        if okRow then listedName, listedLevel, listedLevelType = tostring(name), tostring(level), tostring(levelType) end
+    end
     self:LogState("search-miss", "No matching lot in item search", {
         itemID = wanted.itemID, wantedLink = identity(wanted.link) or "none", wantedQuantity = wanted.quantity,
+        keyName = keyName, keyCommodity = keyCommodity, listedName = listedName, listedLevel = listedLevel,
+        listedLevelType = listedLevelType,
         wantedCost = wanted.cost, keyLevel = key.itemLevel, keySuffix = key.itemSuffix, results = total,
         fullResults = okFull and tostring(full) or "unknown", ownerOrAccount = why.owner, alreadyBought = why.bought,
         otherIdentity = why.identity, otherQuantity = why.quantity, noBuyout = why.nobuyout, overPrice = why.price,
